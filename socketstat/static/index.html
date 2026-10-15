@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SocketStat — доступність розеток</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div><p class="eyebrow">МОНІТОРИНГ · SMART LIFE</p><h1>SocketStat<span>.</span></h1><p class="subtitle">Історія зв’язку з вашими розетками</p></div><div class="refresh"><span id="updated">Завантаження…</span><button id="refresh" type="button">Оновити ↻</button></div></header>
+    <p id="demo" class="notice" hidden>ДЕМО · Синтетичні дані. Реальні розетки не опитуються.</p>
+    <p id="error" role="alert" class="error" hidden></p>
+    <section class="toolbar" aria-label="Період графіка"><div id="ranges"><button data-hours="1">1 год</button><button data-hours="6">6 год</button><button data-hours="24" aria-pressed="true">Доба</button><button data-hours="168">Тиждень</button><button data-hours="336">14 днів</button></div><span>Час: Київ · перевірка щохвилини</span></section>
+    <div id="devices" aria-live="polite"><p class="loading">Завантажуємо історію…</p></div>
+    <section class="panel history"><div class="section-head"><h2>Періоди недоступності</h2><span id="period"></span></div><div class="table-wrap"><table><thead><tr><th>Розетка</th><th>Початок</th><th>Завершення</th><th>Тривалість ≈</th></tr></thead><tbody id="outages"></tbody></table></div><p class="hint">Межа періоду означає, що відключення могло початися раніше або тривати далі. Пропуск спостережень розриває інтервал.</p></section>
+    <footer>Доступність вимірюється через Tuya Cloud і не доводить наявність або відсутність електрики. Час переходів приблизний: інтервал перевірки 1 хв + затримка Tuya. Зберігаємо останні 14 діб.</footer>
+  </main>
+</body>
+</html>

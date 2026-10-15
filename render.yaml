@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: socketstat
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn socketstat.app:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /healthz
+    disk:
+      name: socketstat-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DB_PATH
+        value: /var/data/socketstat.db
+      - key: TUYA_ENDPOINT
+        value: https://openapi.tuyaeu.com
+      - key: TUYA_CLIENT_ID
+        sync: false
+      - key: TUYA_CLIENT_SECRET
+        sync: false
+      - key: SOCKET_1_ID
+        sync: false
+      - key: SOCKET_1_NAME
+        value: Розетка 1
+      - key: SOCKET_2_ID
+        sync: false
+      - key: SOCKET_2_NAME
+        value: Розетка 2
+      - key: DASHBOARD_USER
+        value: admin
+      - key: DASHBOARD_PASSWORD
+        sync: false
