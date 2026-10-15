@@ -1,5 +1,7 @@
 .env
 .venv/
+.venv-macos/
+.venv-windows/
 __pycache__/
 .pytest_cache/
 data/

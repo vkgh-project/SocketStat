@@ -5,11 +5,13 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 function element(tag) {
-  return {tag, attrs: {}, children: [],
+  return {tag, attrs: {}, children: [], listeners: {},
     setAttribute(key, value) { this.attrs[key] = value; },
+    getAttribute(key) { return this.attrs[key]; },
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; },
-    addEventListener() {},
+    addEventListener(name, listener) { this.listeners[name] = listener; },
+    focus() { this.focused = true; },
   };
 }
 function load() {
@@ -67,4 +69,48 @@ test('hourly and weekly panels render even when all observations are missing', (
   const series = context.aggregateCharts([{name: 'one', intervals: []}, {name: 'two', intervals: []}], start, end);
   assert.equal(context.hourlyPanel(series).tag, 'section');
   assert.equal(context.weeklyPanel(series, start, end).tag, 'section');
+});
+
+test('tabs show one panel, support keyboard navigation and keep selection during data rendering', () => {
+  const context = load();
+  const panels = {}, tabs = ['timeline', 'hourly', 'weekly', 'devices', 'outages'].map((name, index) => {
+    const tab = element('button');
+    tab.setAttribute('aria-controls', `panel-${name}`);
+    tab.setAttribute('aria-selected', String(index === 0));
+    tab.tabIndex = index === 0 ? 0 : -1;
+    panels[`panel-${name}`] = {hidden: index !== 0};
+    return tab;
+  });
+  const nodes = Object.fromEntries(['demo', 'timeline', 'hourly', 'weekly', 'devices', 'period', 'outages'].map(id => [`#${id}`, element('div')]));
+  context.document.querySelectorAll = () => tabs;
+  context.document.getElementById = id => panels[id];
+  context.document.querySelector = id => nodes[id];
+  context.setupTabs();
+  tabs[3].listeners.click();
+  assert.equal(panels['panel-devices'].hidden, false);
+  assert.equal(Object.values(panels).filter(panel => !panel.hidden).length, 1);
+  assert.equal(tabs[3].attrs['aria-selected'], 'true');
+  assert.equal(tabs[0].tabIndex, -1);
+
+  const start = seconds('2026-10-15T00:00:00Z');
+  context.render({demo: true, start, end: start + 3600, devices: []});
+  assert.equal(panels['panel-devices'].hidden, false);
+  assert.equal(tabs[3].attrs['aria-selected'], 'true');
+  assert.equal(nodes['#timeline'].children.length, 1);
+  assert.equal(nodes['#hourly'].children.length, 1);
+  assert.equal(nodes['#weekly'].children.length, 1);
+
+  let prevented = false;
+  const key = (tab, key) => tab.listeners.keydown({key, preventDefault() { prevented = true; }});
+  key(tabs[3], 'End');
+  assert.equal(panels['panel-outages'].hidden, false);
+  assert.equal(tabs[4].focused, true);
+  assert.equal(prevented, true);
+  key(tabs[4], 'ArrowRight');
+  assert.equal(panels['panel-timeline'].hidden, false);
+  key(tabs[0], 'ArrowLeft');
+  assert.equal(panels['panel-outages'].hidden, false);
+  key(tabs[4], 'Home');
+  assert.equal(panels['panel-timeline'].hidden, false);
+  assert.equal(Object.values(panels).filter(panel => !panel.hidden).length, 1);
 });

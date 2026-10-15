@@ -12,9 +12,19 @@
     <header><div><p class="eyebrow">МОНІТОРИНГ · SMART LIFE</p><h1>SocketStat<span>.</span></h1><p class="subtitle">Історія зв’язку з вашими розетками</p></div><div class="refresh"><span id="updated">Завантаження…</span><button id="refresh" type="button">Оновити ↻</button></div></header>
     <p id="demo" class="notice" hidden>ДЕМО · Синтетичні дані. Реальні розетки не опитуються.</p>
     <p id="error" role="alert" class="error" hidden></p>
-    <section class="toolbar" aria-label="Період графіка"><div id="ranges"><button data-hours="1">1 год</button><button data-hours="6">6 год</button><button data-hours="24" aria-pressed="true">Доба</button><button data-hours="168">Тиждень</button><button data-hours="336">14 днів</button></div><span>Час: Київ · перевірка щохвилини</span></section>
-    <div id="devices" aria-live="polite"><p class="loading">Завантажуємо історію…</p></div>
-    <section class="panel history"><div class="section-head"><h2>Періоди недоступності</h2><span id="period"></span></div><div class="table-wrap"><table><thead><tr><th>Розетка</th><th>Початок</th><th>Завершення</th><th>Тривалість ≈</th></tr></thead><tbody id="outages"></tbody></table></div><p class="hint">Межа періоду означає, що відключення могло початися раніше або тривати далі. Пропуск спостережень розриває інтервал.</p></section>
+    <section class="toolbar" aria-label="Період перегляду"><div><p class="control-label">ПЕРІОД ПЕРЕГЛЯДУ</p><div id="ranges"><button data-hours="1" aria-pressed="false">1 год</button><button data-hours="6" aria-pressed="false">6 год</button><button data-hours="24" aria-pressed="true">Доба</button><button data-hours="168" aria-pressed="false">Тиждень</button><button data-hours="336" aria-pressed="false">14 днів</button></div></div><div class="time-context"><span>Час: Київ · перевірка щохвилини</span><span id="period"></span></div></section>
+    <div class="tabs" role="tablist" aria-label="Розділи моніторингу">
+      <button type="button" id="tab-timeline" role="tab" aria-selected="true" aria-controls="panel-timeline" tabindex="0">Доступність</button>
+      <button type="button" id="tab-hourly" role="tab" aria-selected="false" aria-controls="panel-hourly" tabindex="-1">За годинами</button>
+      <button type="button" id="tab-weekly" role="tab" aria-selected="false" aria-controls="panel-weekly" tabindex="-1">Тижневий розклад</button>
+      <button type="button" id="tab-devices" role="tab" aria-selected="false" aria-controls="panel-devices" tabindex="-1">Розетки</button>
+      <button type="button" id="tab-outages" role="tab" aria-selected="false" aria-controls="panel-outages" tabindex="-1">Звіт недоступності</button>
+    </div>
+    <section id="panel-timeline" role="tabpanel" aria-labelledby="tab-timeline" tabindex="0"><div id="timeline"><p class="loading">Завантажуємо історію…</p></div></section>
+    <section id="panel-hourly" role="tabpanel" aria-labelledby="tab-hourly" tabindex="0" hidden><div id="hourly"><p class="loading">Завантажуємо історію…</p></div></section>
+    <section id="panel-weekly" role="tabpanel" aria-labelledby="tab-weekly" tabindex="0" hidden><div id="weekly"><p class="loading">Завантажуємо історію…</p></div></section>
+    <section id="panel-devices" role="tabpanel" aria-labelledby="tab-devices" tabindex="0" hidden><div id="devices" aria-live="polite"><p class="loading">Завантажуємо дані розеток…</p></div></section>
+    <section id="panel-outages" role="tabpanel" aria-labelledby="tab-outages" tabindex="0" hidden><div class="panel history"><div class="section-head"><h2>Періоди недоступності</h2><span>За вибраний період</span></div><div class="table-wrap"><table><caption class="sr-only">Інтервали недоступності розеток за вибраний період</caption><thead><tr><th scope="col">Розетка</th><th scope="col">Початок</th><th scope="col">Завершення</th><th scope="col">Тривалість ≈</th></tr></thead><tbody id="outages"><tr><td colspan="4">Завантажуємо звіт…</td></tr></tbody></table></div><p class="hint">Межа періоду означає, що відключення могло початися раніше або тривати далі. Пропуск спостережень розриває інтервал.</p></div></section>
     <footer>Доступність вимірюється через Tuya Cloud і не доводить наявність або відсутність електрики. Час переходів приблизний: інтервал перевірки 1 хв + затримка Tuya. Зберігаємо останні 14 діб.</footer>
   </main>
 </body>
