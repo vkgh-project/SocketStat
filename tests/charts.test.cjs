@@ -71,9 +71,33 @@ test('hourly and weekly panels render even when all observations are missing', (
   assert.equal(context.weeklyPanel(series, start, end).tag, 'section');
 });
 
+test('timeline shows only the last two hours and clips boundary intervals without changing history', () => {
+  const context = load(), end = seconds('2026-10-15T12:00:00Z'), start = end - 86400;
+  const nodes = Object.fromEntries(['demo', 'timeline', 'hourly', 'weekly', 'devices', 'period', 'outages'].map(id => [`#${id}`, element('div')]));
+  context.document.querySelector = id => nodes[id];
+  context.card = () => element('section');
+  let shown;
+  context.chartPanel = (devices, start, end) => { shown = {devices, start, end}; return element('section'); };
+  const intervals = [
+    {start, end: end - 10800, state: 'offline'},
+    {start: end - 10800, end: end - 3600, state: 'online'},
+    {start: end - 3600, end: end - 1800, state: 'unknown'},
+    {start: end - 1800, end: end + 60, state: 'offline'},
+  ];
+  context.render({demo: true, start, end, devices: [{name: 'one', intervals}]});
+  assert.equal(shown.start, end - 7200);
+  assert.equal(shown.end, end);
+  assert.equal(shown.devices[0].intervals.length, 3);
+  assert.equal(shown.devices[0].intervals[0].start, end - 7200);
+  assert.equal(shown.devices[0].intervals[1].state, 'unknown');
+  assert.equal(shown.devices[0].intervals[2].end, end);
+  assert.equal(intervals[1].start, end - 10800);
+  assert.equal(intervals[3].end, end + 60);
+});
+
 test('tabs show one panel, support keyboard navigation and keep selection during data rendering', () => {
   const context = load();
-  const panels = {}, tabs = ['timeline', 'hourly', 'weekly', 'devices', 'outages'].map((name, index) => {
+  const panels = {}, tabs = ['devices', 'timeline', 'hourly', 'weekly', 'outages'].map((name, index) => {
     const tab = element('button');
     tab.setAttribute('aria-controls', `panel-${name}`);
     tab.setAttribute('aria-selected', String(index === 0));
@@ -86,16 +110,18 @@ test('tabs show one panel, support keyboard navigation and keep selection during
   context.document.getElementById = id => panels[id];
   context.document.querySelector = id => nodes[id];
   context.setupTabs();
-  tabs[3].listeners.click();
+  tabs[1].listeners.click();
+  assert.equal(panels['panel-timeline'].hidden, false);
+  tabs[0].listeners.click();
   assert.equal(panels['panel-devices'].hidden, false);
   assert.equal(Object.values(panels).filter(panel => !panel.hidden).length, 1);
-  assert.equal(tabs[3].attrs['aria-selected'], 'true');
-  assert.equal(tabs[0].tabIndex, -1);
+  assert.equal(tabs[0].attrs['aria-selected'], 'true');
+  assert.equal(tabs[1].tabIndex, -1);
 
   const start = seconds('2026-10-15T00:00:00Z');
   context.render({demo: true, start, end: start + 3600, devices: []});
   assert.equal(panels['panel-devices'].hidden, false);
-  assert.equal(tabs[3].attrs['aria-selected'], 'true');
+  assert.equal(tabs[0].attrs['aria-selected'], 'true');
   assert.equal(nodes['#timeline'].children.length, 1);
   assert.equal(nodes['#hourly'].children.length, 1);
   assert.equal(nodes['#weekly'].children.length, 1);
@@ -107,10 +133,10 @@ test('tabs show one panel, support keyboard navigation and keep selection during
   assert.equal(tabs[4].focused, true);
   assert.equal(prevented, true);
   key(tabs[4], 'ArrowRight');
-  assert.equal(panels['panel-timeline'].hidden, false);
+  assert.equal(panels['panel-devices'].hidden, false);
   key(tabs[0], 'ArrowLeft');
   assert.equal(panels['panel-outages'].hidden, false);
   key(tabs[4], 'Home');
-  assert.equal(panels['panel-timeline'].hidden, false);
+  assert.equal(panels['panel-devices'].hidden, false);
   assert.equal(Object.values(panels).filter(panel => !panel.hidden).length, 1);
 });

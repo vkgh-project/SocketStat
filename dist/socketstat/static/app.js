@@ -2,7 +2,8 @@
 const labels = {online: 'Доступна', offline: 'Недоступна', unknown: 'Немає даних'};
 const socketColors = ['var(--socket-1)', 'var(--socket-2)'];
 const dateFormat = new Intl.DateTimeFormat('uk-UA', {timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
-let hours = 24;
+const historyHours = 24;
+const timelineHours = 2;
 let loading = false;
 const date = value => dateFormat.format(new Date(value * 1000));
 function duration(seconds) {
@@ -70,7 +71,7 @@ function timeline(devices, start, end) {
 }
 function chartPanel(devices, start, end) {
   const panel = el('section', undefined, 'panel');
-  panel.append(el('h2', 'Доступність розеток', 'chart-title'));
+  panel.append(el('h2', 'Доступність розеток · останні 2 години', 'chart-title'));
   const chart = el('div', undefined, 'chart-scroll');
   chart.append(timeline(devices, start, end));
   panel.append(chart);
@@ -273,11 +274,15 @@ function card(device) {
 function render(data) {
   document.querySelector('#demo').hidden = !data.demo;
   const series = aggregateCharts(data.devices, data.start, data.end);
-  document.querySelector('#timeline').replaceChildren(chartPanel(data.devices, data.start, data.end));
+  const timelineStart = data.end - timelineHours * 3600;
+  const recentDevices = data.devices.map(device => ({...device, intervals: device.intervals
+    .filter(interval => interval.end > timelineStart && interval.start < data.end)
+    .map(interval => ({...interval, start: Math.max(interval.start, timelineStart), end: Math.min(interval.end, data.end)}))}));
+  document.querySelector('#timeline').replaceChildren(chartPanel(recentDevices, timelineStart, data.end));
   document.querySelector('#hourly').replaceChildren(hourlyPanel(series));
   document.querySelector('#weekly').replaceChildren(weeklyPanel(series, data.start, data.end));
   document.querySelector('#devices').replaceChildren(...data.devices.map(device => card(device)));
-  document.querySelector('#period').textContent = `${date(data.start)} — ${date(data.end)}`;
+  document.querySelector('#period').textContent = `Статистика за останню добу: ${date(data.start)} — ${date(data.end)}`;
   const outages = [];
   data.devices.forEach(device => device.intervals.filter(i => i.state === 'offline').forEach(interval => outages.push({...interval, name: device.name})));
   outages.sort((a, b) => b.start - a.start);
@@ -291,7 +296,7 @@ function render(data) {
     body.append(row);
   });
   if (!outages.length) {
-    const cell = el('td', 'За вибраний період недоступність не зафіксована. Перевірте покриття даними.');
+    const cell = el('td', 'За останню добу недоступність не зафіксована. Перевірте покриття даними.');
     cell.colSpan = 4;
     const row = el('tr'); row.append(cell); body.append(row);
   }
@@ -303,7 +308,7 @@ async function refresh() {
   button.disabled = true;
   const error = document.querySelector('#error');
   try {
-    const response = await fetch(`/api/dashboard?hours=${hours}`, {cache: 'no-store', signal: AbortSignal.timeout(15000)});
+    const response = await fetch(`/api/dashboard?hours=${historyHours}`, {cache: 'no-store', signal: AbortSignal.timeout(15000)});
     if (!response.ok) throw new Error('request_failed');
     render(await response.json());
     error.hidden = true;
@@ -345,11 +350,5 @@ function setupTabs() {
 
 document.querySelector('#refresh').addEventListener('click', refresh);
 setupTabs();
-document.querySelectorAll('[data-hours]').forEach(button => button.addEventListener('click', () => {
-  if (loading) return;
-  hours = Number(button.dataset.hours);
-  document.querySelectorAll('[data-hours]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
-  refresh();
-}));
 refresh();
 setInterval(refresh, 30000);
