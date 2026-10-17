@@ -1,4 +1,5 @@
 .env
+.DS_Store
 .venv/
 .venv-macos/
 .venv-windows/
@@ -8,3 +9,4 @@ data/
 *.db
 *.db-shm
 *.db-wal
+/dist/config.env
