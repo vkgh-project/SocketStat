@@ -66,21 +66,24 @@ button:disabled { opacity: .5; cursor: wait; }
 #devices .metric strong { font-size: 20px; letter-spacing: -.5px; }
 .chart-scroll { overflow-x: auto; }
 .timeline, .hourly-chart, .weekly-chart { width: 100%; min-width: 800px; height: auto; display: block; }
-.timeline { aspect-ratio: 1000/240; }
 .timeline text, .hourly-chart text, .weekly-chart text { font-family: ui-monospace, Consolas, monospace; font-size: 11px; fill: var(--muted); }
 .chart-grid { stroke: var(--line); stroke-dasharray: 3 5; stroke-width: 1; }
 .weekly-chart .chart-grid { stroke: #a3a69d; stroke-dasharray: none; }
 .weekly-frame { fill: none; stroke: var(--ink); stroke-width: 1.5; pointer-events: none; }
 .chart-axis { fill: none; stroke: #808078; stroke-width: 1; }
-.chart-step { fill: none; stroke-width: 3; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.chart-step { fill: none; stroke-width: 9; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .timeline .chart-value { font-size: 14px; fill: var(--ink); font-weight: 600; }
-.socket-line-0 { stroke-width: 2; }
-.socket-line-1 { stroke-width: 1.5; }
+.timeline .timeline-device { font-size: 13px; fill: var(--ink); font-weight: 600; }
+.socket-line-0 { stroke-width: 6; }
+.socket-line-1 { stroke-width: 4.5; }
 .legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: 12px; color: var(--muted); margin-top: 16px; }
 .legend span::before { content: ''; display: inline-block; margin-right: 8px; vertical-align: middle; }
 .legend .socket-key-0::before { background: var(--socket-1); width: 22px; height: 4px; }
 .legend .socket-key-1::before { background: var(--socket-2); width: 22px; height: 4px; }
-.legend .missing-key::before { width: 22px; height: 8px; background: repeating-linear-gradient(135deg, var(--chart-missing-bg) 0 3px, var(--chart-missing-line) 3px 4px); }
+.legend .online-key::before, .legend .offline-key::before { width: 22px; height: 10px; }
+.legend .socket-key-0.offline-key::before { background: repeating-linear-gradient(135deg, var(--paper) 0 3px, var(--socket-1) 3px 5px); }
+.legend .socket-key-1.offline-key::before { background: repeating-linear-gradient(135deg, var(--paper) 0 3px, var(--socket-2) 3px 5px); }
+.legend .missing-key::before { width: 22px; height: 10px; background: radial-gradient(circle, var(--chart-missing-line) 1px, transparent 1px) 0 0 / 6px 6px var(--chart-missing-bg); }
 .week-select { font: inherit; font-size: 13px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); padding: 9px; border-radius: 2px; }
 .table-wrap { max-height: 500px; overflow: auto; margin-top: 22px; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }

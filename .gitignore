@@ -3,6 +3,9 @@
 .venv/
 .venv-macos/
 .venv-windows/
+build/
+/dist/windows/
+/dist/*.exe
 __pycache__/
 .pytest_cache/
 data/

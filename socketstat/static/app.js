@@ -23,31 +23,31 @@ function svgElement(tag, attrs, text) {
   return node;
 }
 function timeline(devices, start, end) {
-  const left = 48, right = 980, top = 36, bottom = 156, axis = 184;
+  const left = 48, right = 980, top = 48, rowHeight = 80, rowGap = 152;
+  const bottom = top + Math.max(0, devices.length - 1) * rowGap + rowHeight;
+  const axis = bottom + 28, chartHeight = axis + 56;
   const x = timestamp => left + (timestamp - start) / (end - start) * (right - left);
-  const y = state => state === 'online' ? top : bottom;
-  const svg = svgElement('svg', {viewBox: '0 0 1000 240', role: 'img', 'aria-label': `Історія доступності: ${devices.map(device => device.name).join(', ')}. Час по горизонталі; 1 — доступна, 0 — недоступна; розриви — немає даних.`, class: 'timeline'});
+  const svg = svgElement('svg', {viewBox: `0 0 1000 ${chartHeight}`, role: 'img', 'aria-label': `Історія доступності: ${devices.map(device => device.name).join(', ')}. Кожна розетка в окремому ряду, одна над одною, зі спільною шкалою часу; 1 — доступна, 0 — недоступна; розриви — немає даних.`, class: 'timeline'});
   svg.append(svgElement('title', {}, `${devices.map(device => device.name).join(', ')}: ${date(start)} — ${date(end)}`));
   for (let i = 0; i <= 8; i++) {
     const tick = left + (right - left) * i / 8;
     svg.append(svgElement('line', {x1: tick, x2: tick, y1: top, y2: bottom, class: 'chart-grid'}));
   }
-  for (let i = 1; i < 4; i++) {
-    const level = top + (bottom - top) * i / 4;
-    svg.append(svgElement('line', {x1: left, x2: right, y1: level, y2: level, class: 'chart-grid'}));
-  }
-  for (const [value, level] of [[1, top], [0, bottom]]) {
-    svg.append(svgElement('line', {x1: left, x2: right, y1: level, y2: level, class: 'chart-grid'}));
-    svg.append(svgElement('text', {x: left - 16, y: level + 4, 'text-anchor': 'end', class: 'chart-value'}, value));
-  }
-  svg.append(svgElement('path', {d: `M ${left} 20 V ${axis} H ${right}`, class: 'chart-axis'}));
+  svg.append(svgElement('path', {d: `M ${left} ${top} V ${axis} H ${right}`, class: 'chart-axis'}));
   devices.forEach((device, deviceIndex) => {
+    const rowTop = top + deviceIndex * rowGap;
+    const y = state => rowTop + (state === 'online' ? 0 : rowHeight);
+    svg.append(svgElement('text', {x: left, y: rowTop - 18, class: 'timeline-device'}, device.name));
+    for (const [value, level] of [[1, y('online')], [0, y('offline')]]) {
+      svg.append(svgElement('line', {x1: left, x2: right, y1: level, y2: level, class: 'chart-grid'}),
+        svgElement('text', {x: left - 16, y: level + 4, 'text-anchor': 'end', class: 'chart-value'}, value));
+    }
     device.intervals.forEach((interval, index) => {
       if (interval.state === 'unknown') return;
       const a = x(interval.start), b = x(interval.end);
       const previous = device.intervals[index - 1];
       const connected = previous && previous.state !== 'unknown' && previous.end === interval.start;
-      // Each socket keeps its own gaps, while both use the exact same 0/1 scale.
+      // Each socket has its own 0/1 row and gaps, with a shared time scale.
       const d = connected
         ? `M ${a} ${y(previous.state)} V ${y(interval.state)} H ${b}`
         : `M ${a} ${y(interval.state)} H ${b}`;
@@ -63,9 +63,9 @@ function timeline(devices, start, end) {
   for (let i = 0; i <= 4; i++) {
     const tick = left + (right - left) * i / 4;
     svg.append(svgElement('line', {x1: tick, x2: tick, y1: axis, y2: axis + 5, class: 'chart-axis'}));
-    svg.append(svgElement('text', {x: tick, y: 209, 'text-anchor': i === 0 ? 'start' : i === 4 ? 'end' : 'middle'}, date(start + (end - start) * i / 4)));
+    svg.append(svgElement('text', {x: tick, y: axis + 25, 'text-anchor': i === 0 ? 'start' : i === 4 ? 'end' : 'middle'}, date(start + (end - start) * i / 4)));
   }
-  svg.append(svgElement('text', {x: (left + right) / 2, y: 235, 'text-anchor': 'middle'}, 'Час · Київ'));
+  svg.append(svgElement('text', {x: (left + right) / 2, y: chartHeight - 5, 'text-anchor': 'middle'}, 'Час · Київ'));
   return svg;
 }
 function chartPanel(devices, start, end) {
@@ -76,7 +76,7 @@ function chartPanel(devices, start, end) {
   panel.append(chart);
   const legend = el('div', undefined, 'legend');
   devices.forEach((device, index) => legend.append(el('span', device.name, `socket-key-${index}`)));
-  panel.append(legend, el('p', '1 — доступна · 0 — недоступна · розрив лінії — немає даних. Лінії накладаються, коли обидві розетки мають однаковий стан.', 'hint'));
+  panel.append(legend, el('p', 'Кожна розетка показана в окремому ряду, одна над одною, зі спільною шкалою часу. 1 — доступна · 0 — недоступна · розрив лінії — немає даних.', 'hint'));
   return panel;
 }
 const localPartsFormat = new Intl.DateTimeFormat('en-GB', {
@@ -130,7 +130,10 @@ function aggregateCharts(devices, start, end) {
 }
 function socketLegend(devices, missing=false) {
   const legend = el('div', undefined, 'legend');
-  devices.forEach((device, index) => legend.append(el('span', device.name, `socket-key-${index}`)));
+  devices.forEach((device, index) => {
+    legend.append(el('span', `${device.name}: доступна`, `socket-key-${index} online-key`),
+      el('span', `${device.name}: недоступна`, `socket-key-${index} offline-key`));
+  });
   if (missing) legend.append(el('span', 'Немає даних', 'missing-key'));
   return legend;
 }
@@ -139,21 +142,27 @@ function titledRect(attrs, caption) {
   rect.append(svgElement('title', {}, caption));
   return rect;
 }
-function missingPattern(id) {
+function chartPatterns(prefix, series) {
   const defs = svgElement('defs', {});
-  const pattern = svgElement('pattern', {id, width: 6, height: 6, patternUnits: 'userSpaceOnUse'});
+  const pattern = svgElement('pattern', {id: `${prefix}-missing`, width: 6, height: 6, patternUnits: 'userSpaceOnUse'});
   pattern.append(svgElement('rect', {width: 6, height: 6, fill: 'var(--chart-missing-bg)'}),
-    svgElement('path', {d: 'M -1 1 L 5 7 M 3 -1 L 7 3', stroke: 'var(--chart-missing-line)', 'stroke-width': 1}));
+    svgElement('circle', {cx: 3, cy: 3, r: 1, fill: 'var(--chart-missing-line)'}));
   defs.append(pattern);
+  series.forEach((device, index) => {
+    const offline = svgElement('pattern', {id: `${prefix}-offline-${index}`, width: 6, height: 6, patternUnits: 'userSpaceOnUse'});
+    offline.append(svgElement('rect', {width: 6, height: 6, fill: 'var(--paper)'}),
+      svgElement('path', {d: 'M -1 1 L 5 7 M 3 -1 L 7 3', stroke: socketColors[index % socketColors.length], 'stroke-width': 2}));
+    defs.append(offline);
+  });
   return defs;
 }
 function hourlyPanel(series) {
   const panel = el('section', undefined, 'panel');
   panel.append(el('h2', 'Недоступність за годинами доби', 'chart-title'));
-  const svg = svgElement('svg', {viewBox: '0 0 1000 300', class: 'hourly-chart', role: 'img', 'aria-label': 'Стовпчики: години доби 00–23, хвилини недоступності для кожної розетки.'});
-  svg.append(missingPattern('hourly-missing'));
+  const svg = svgElement('svg', {viewBox: '0 0 1000 300', class: 'hourly-chart', role: 'img', 'aria-label': 'Стовпчики: години доби 00–23, хвилини доступності суцільною заливкою, недоступності штрихуванням, без даних сірими крапками для кожної розетки.'});
+  svg.append(chartPatterns('hourly', series));
   const left = 60, right = 980, top = 30, baseline = 232, group = (right - left) / 24;
-  const maximum = Math.max(60, ...series.flatMap(device => device.hourly.map(h => (h.offline + h.total - h.known) / 60)));
+  const maximum = Math.max(60, ...series.flatMap(device => device.hourly.map(h => h.total / 60)));
   const tick = Math.ceil(maximum / 4 / 15) * 15, ceiling = tick * 4;
   const height = minutes => minutes / ceiling * (baseline - top);
   svg.append(svgElement('text', {x: left, y: 15}, 'Хвилини'));
@@ -166,19 +175,20 @@ function hourlyPanel(series) {
     svg.append(svgElement('text', {x: left + group * (hour + .5), y: 254, 'text-anchor': 'middle'}, String(hour).padStart(2, '0')));
     series.forEach((device, index) => {
       const cell = device.hourly[hour];
+      const online = Math.max(0, cell.known - cell.offline) / 60;
       const offline = cell.offline / 60, missing = Math.max(0, cell.total - cell.known) / 60;
       const width = (group - 10) / series.length, x = left + hour * group + 5 + index * width;
-      const caption = `${device.name}, ${String(hour).padStart(2, '0')}:00–${String(hour + 1).padStart(2, '0')}:00: недоступна ≈ ${duration(cell.offline)}; немає даних ≈ ${duration(missing * 60)}; покриття ${cell.total ? Math.round(cell.known / cell.total * 100) : 0}%.`;
-      if (offline) svg.append(titledRect({x, y: baseline - height(offline), width: width - 2, height: height(offline), fill: socketColors[index]}, caption));
-      if (missing) svg.append(titledRect({x, y: baseline - height(offline + missing), width: width - 2, height: height(missing), fill: 'url(#hourly-missing)'}, caption));
-      // A zero-height bar still has a focusable tooltip; it is not a missing reading.
-      if (!offline && !missing) svg.append(titledRect({x, y: baseline - 2, width: width - 2, height: 2, fill: cell.total ? socketColors[index] : 'var(--chart-missing-line)'}, cell.total ? caption : `${device.name}, ${hour}:00: година поза вибраним періодом.`));
+      const caption = `${device.name}, ${String(hour).padStart(2, '0')}:00–${String(hour + 1).padStart(2, '0')}:00: доступна ≈ ${duration(online * 60)}; недоступна ≈ ${duration(cell.offline)}; немає даних ≈ ${duration(missing * 60)}; покриття ${cell.total ? Math.round(cell.known / cell.total * 100) : 0}%.`;
+      if (online) svg.append(titledRect({x, y: baseline - height(online), width: width - 2, height: height(online), fill: socketColors[index % socketColors.length]}, caption));
+      if (offline) svg.append(titledRect({x, y: baseline - height(online + offline), width: width - 2, height: height(offline), fill: `url(#hourly-offline-${index})`}, caption));
+      if (missing) svg.append(titledRect({x, y: baseline - height(online + offline + missing), width: width - 2, height: height(missing), fill: 'url(#hourly-missing)'}, caption));
+      if (!cell.total) svg.append(titledRect({x, y: baseline - 2, width: width - 2, height: 2, fill: 'url(#hourly-missing)'}, `${device.name}, ${hour}:00: година поза вибраним періодом.`));
     });
   }
   svg.append(svgElement('path', {d: `M ${left} ${top} V ${baseline} H ${right}`, class: 'chart-axis'}),
     svgElement('text', {x: 520, y: 286, 'text-anchor': 'middle'}, 'Година доби · Київ'));
   const chart = el('div', undefined, 'chart-scroll'); chart.append(svg);
-  panel.append(chart, socketLegend(series, true), el('p', 'Кольорові стовпчики — сума хвилин недоступності за вибраний період; штрихована частина зверху — хвилини без даних. Для кількох днів сума за одну годину доби може перевищувати 60 хв.', 'hint'));
+  panel.append(chart, socketLegend(series, true), el('p', 'Кожен стовпчик містить хвилини доступності (суцільна заливка), недоступності (кольорове штрихування) та без даних (сірі крапки). Колір позначає розетку. Для кількох днів сума за одну годину доби може перевищувати 60 хв.', 'hint'));
   return panel;
 }
 function weeklyPanel(series, start, end) {
@@ -196,8 +206,8 @@ function weeklyPanel(series, start, end) {
   });
   const chart = el('div', undefined, 'chart-scroll');
   function draw() {
-    const svg = svgElement('svg', {viewBox: '0 0 1000 280', class: 'weekly-chart', role: 'img', 'aria-label': 'Тижневий розклад недоступності: години по горизонталі, дні тижня по вертикалі, дві смуги в кожній клітинці — дві розетки.'});
-    svg.append(missingPattern('weekly-missing'));
+    const svg = svgElement('svg', {viewBox: '0 0 1000 280', class: 'weekly-chart', role: 'img', 'aria-label': 'Тижневий розклад: години по горизонталі, дні тижня по вертикалі, дві смуги в кожній клітинці — дві розетки. Доступність — суцільна заливка, недоступність — штрихування, немає даних — сірі крапки.'});
+    svg.append(chartPatterns('weekly', series));
     const left = 88, top = 36, width = 888 / 24, row = 30;
     ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].forEach((label, dayIndex) => {
       const day = shiftDay(selectedWeek, dayIndex);
@@ -208,9 +218,11 @@ function weeklyPanel(series, start, end) {
         series.forEach((device, index) => {
           const cell = device.calendar.get(`${day}/${hour}`) || {offline: 0, known: 0, total: 0};
           const total = Math.max(3600, cell.total), missing = Math.max(0, total - cell.known);
+          const online = Math.max(0, cell.known - cell.offline);
           const x = left + hour * width + 2, y = top + dayIndex * row + 4 + index * 11;
-          const caption = `${device.name}, ${shortDay(day)} ${String(hour).padStart(2, '0')}:00: недоступна ≈ ${duration(cell.offline)}; немає даних ≈ ${duration(missing)}. Колір — частка недоступності; штрихування — частка без даних.`;
-          svg.append(titledRect({x, y, width: width - 4, height: 9, fill: socketColors[index], 'fill-opacity': .55 + .45 * cell.offline / total}, caption));
+          const caption = `${device.name}, ${shortDay(day)} ${String(hour).padStart(2, '0')}:00: доступна ≈ ${duration(online)}; недоступна ≈ ${duration(cell.offline)}; немає даних ≈ ${duration(missing)}. Довжина частини смуги — тривалість стану, без відображення порядку подій у межах години.`;
+          if (online) svg.append(titledRect({x, y, width: (width - 4) * online / total, height: 9, fill: socketColors[index % socketColors.length]}, caption));
+          if (cell.offline) svg.append(titledRect({x: x + (width - 4) * online / total, y, width: (width - 4) * cell.offline / total, height: 9, fill: `url(#weekly-offline-${index})`}, caption));
           if (missing) svg.append(titledRect({x: x + (width - 4) * (1 - missing / total), y, width: (width - 4) * missing / total, height: 9, fill: 'url(#weekly-missing)'}, caption));
         });
       }
@@ -230,7 +242,7 @@ function weeklyPanel(series, start, end) {
   }
   select.addEventListener('change', () => { selectedWeek = select.value; draw(); });
   header.append(select); draw();
-  panel.append(header, chart, socketLegend(series, true), el('p', 'Кожна година містить дві смуги: зверху перша розетка, знизу друга. Світліший колір — доступність, насиченіший — більше хвилин недоступності. Штрихування — немає даних, зокрема поза вибраним періодом. Це історія спостережень, а не прогноз.', 'hint'));
+  panel.append(header, chart, socketLegend(series, true), el('p', 'Кожна година містить дві смуги: зверху перша розетка, знизу друга. Доступність — суцільна заливка, недоступність — кольорове штрихування, немає даних — сірі крапки, зокрема поза вибраним періодом. Довжина частин показує тривалість станів, а не їх порядок у межах години. Це історія спостережень, а не прогноз.', 'hint'));
   return panel;
 }
 
