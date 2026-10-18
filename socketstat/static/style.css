@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --socket-1: #0066ff;
   --socket-2: #00c853;
   --chart-missing-bg: #f3f3f0;
@@ -115,3 +115,19 @@ footer { border-top: 1px dashed var(--line); padding-top: 20px; margin-top: 30px
   .section-head > span { font-size: 11px; }
   #devices { grid-template-columns: 1fr; }
 }
+
+.daily-timeline { margin-top: 20px; border-top: 1px dashed var(--line); padding-top: 16px; }
+.daily-timeline h3 { font-size: 12px; font-weight: 600; margin: 0 0 12px; }
+.daily-bar { display: block; width: 100%; height: auto; overflow: visible; }
+.daily-bar text { font-family: ui-monospace, Consolas, monospace; font-size: 24px; fill: var(--muted); }
+.daily-online { fill: #16a34a; }
+.daily-offline { fill: #dc2626; }
+.daily-unknown { fill: #a1a19a; }
+.daily-future { fill: #eeeeea; }
+.daily-now { stroke: var(--ink); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.daily-legend { gap: 8px 14px; margin-top: 8px; font-size: 11px; }
+.daily-legend span::before { width: 10px; height: 10px; margin-right: 5px; }
+.daily-key-online::before { background: #16a34a; }
+.daily-key-offline::before { background: #dc2626; }
+.daily-key-unknown::before { background: #a1a19a; }
+.daily-key-future::before { background: #eeeeea; border: 1px solid var(--line); }

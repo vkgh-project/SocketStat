@@ -2,6 +2,8 @@ import asyncio
 import secrets
 import time
 from contextlib import asynccontextmanager, suppress
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import httpx
@@ -85,18 +87,27 @@ def create_app(settings=None):
     def dashboard(hours: float = Query(24, ge=1, le=336)):
         now = time.time()
         start = now - hours * 3600
+        local_now = datetime.fromtimestamp(now, ZoneInfo('Europe/Kyiv'))
+        midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_start = midnight.timestamp()
+        day_end = (midnight + timedelta(days=1)).timestamp()
         devices = []
         for device in app.state.settings.devices:
             latest = app.state.store.latest(device.id)
             current = (latest['state'] if latest and now - latest['scheduled_at'] < 120
                        else 'unknown')
             item = summarize(app.state.store.read(device.id, start, now), start, now)
+            today_intervals = (summarize(app.state.store.read(device.id, day_start, now),
+                                         day_start, now)['intervals']
+                               if now > day_start else [])
             item.update({'name': device.name, 'state': current,
+                         'today_intervals': today_intervals,
                          'last_checked_at': latest['checked_at'] if latest else None,
                          'error_code': latest['error_code'] if latest else None})
             devices.append(item)
         return {'start': start, 'end': now, 'timezone': 'Europe/Kyiv',
-                'demo': app.state.settings.demo, 'devices': devices}
+                'demo': app.state.settings.demo, 'devices': devices,
+                'today': {'start': day_start, 'end': day_end}}
 
     return app
 

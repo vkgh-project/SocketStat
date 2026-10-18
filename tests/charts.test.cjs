@@ -64,40 +64,48 @@ test('spring clock change skips the nonexistent hour', () => {
   assert.equal(result.hourly[4].known, 3600);
 });
 
-test('hourly and weekly panels render even when all observations are missing', () => {
+test('weekly panel renders even when all observations are missing', () => {
   const context = load(), start = seconds('2026-10-15T00:00:00Z'), end = start + 3600;
   const series = context.aggregateCharts([{name: 'one', intervals: []}, {name: 'two', intervals: []}], start, end);
-  assert.equal(context.hourlyPanel(series).tag, 'section');
   assert.equal(context.weeklyPanel(series, start, end).tag, 'section');
 });
 
-test('timeline shows only the last two hours and clips boundary intervals without changing history', () => {
-  const context = load(), end = seconds('2026-10-15T12:00:00Z'), start = end - 86400;
-  const nodes = Object.fromEntries(['demo', 'timeline', 'hourly', 'weekly', 'devices', 'period', 'outages'].map(id => [`#${id}`, element('div')]));
-  context.document.querySelector = id => nodes[id];
-  context.card = () => element('section');
-  let shown;
-  context.chartPanel = (devices, start, end) => { shown = {devices, start, end}; return element('section'); };
+test('daily bar clips intervals at midnight and now, with separate missing and future states', () => {
+  const context = load(), start = seconds('2026-10-14T21:00:00Z');
+  const now = start + 43200, end = start + 86400;
   const intervals = [
-    {start, end: end - 10800, state: 'offline'},
-    {start: end - 10800, end: end - 3600, state: 'online'},
-    {start: end - 3600, end: end - 1800, state: 'unknown'},
-    {start: end - 1800, end: end + 60, state: 'offline'},
+    {start: start - 3600, end: start + 3600, state: 'online'},
+    {start: start + 3600, end: start + 7200, state: 'offline'},
+    {start: start + 7200, end: start + 10800, state: 'unknown'},
+    {start: start + 40000, end: end + 3600, state: 'online'},
+    {start: end, end: end + 3600, state: 'offline'},
   ];
-  context.render({demo: true, start, end, devices: [{name: 'one', intervals}]});
-  assert.equal(shown.start, end - 7200);
-  assert.equal(shown.end, end);
-  assert.equal(shown.devices[0].intervals.length, 3);
-  assert.equal(shown.devices[0].intervals[0].start, end - 7200);
-  assert.equal(shown.devices[0].intervals[1].state, 'unknown');
-  assert.equal(shown.devices[0].intervals[2].end, end);
-  assert.equal(intervals[1].start, end - 10800);
-  assert.equal(intervals[3].end, end + 60);
+  const bar = context.dailyTimeline({name: 'one', today_intervals: intervals}, {start, end}, now).children[1];
+  const rects = bar.children.filter(node => node.tag === 'rect');
+  assert.equal(rects[0].attrs.class, 'daily-future');
+  assert.equal(rects[0].attrs.width, 1000);
+  assert.equal(rects[1].attrs.class, 'daily-unknown');
+  assert.equal(rects[1].attrs.width, 500);
+  assert.equal(rects[2].attrs.x, 0);
+  assert.equal(rects[2].attrs.class, 'daily-online');
+  assert.equal(rects[3].attrs.class, 'daily-offline');
+  assert.equal(rects[4].attrs.class, 'daily-unknown');
+  assert.equal(rects[5].attrs.x + rects[5].attrs.width, 500);
+  assert.equal(rects.length, 6);
+  assert.equal(intervals[0].start, start - 3600);
+  assert.ok(bar.children.some(node => node.textContent === '23:59'));
+});
+
+test('daily bar places clock ticks by elapsed time on a 25-hour day', () => {
+  const context = load(), start = seconds('2026-10-24T21:00:00Z'), end = seconds('2026-10-25T22:00:00Z');
+  const bar = context.dailyTimeline({name: 'one', today_intervals: []}, {start, end}, end).children[1];
+  const noon = bar.children.find(node => node.textContent === '12:00');
+  assert.equal(noon.attrs.x, 13 / 25 * 1000);
 });
 
 test('tabs show one panel, support keyboard navigation and keep selection during data rendering', () => {
   const context = load();
-  const panels = {}, tabs = ['devices', 'timeline', 'hourly', 'weekly', 'outages'].map((name, index) => {
+  const panels = {}, tabs = ['devices', 'weekly', 'outages'].map((name, index) => {
     const tab = element('button');
     tab.setAttribute('aria-controls', `panel-${name}`);
     tab.setAttribute('aria-selected', String(index === 0));
@@ -105,13 +113,13 @@ test('tabs show one panel, support keyboard navigation and keep selection during
     panels[`panel-${name}`] = {hidden: index !== 0};
     return tab;
   });
-  const nodes = Object.fromEntries(['demo', 'timeline', 'hourly', 'weekly', 'devices', 'period', 'outages'].map(id => [`#${id}`, element('div')]));
+  const nodes = Object.fromEntries(['demo', 'weekly', 'devices', 'period', 'outages'].map(id => [`#${id}`, element('div')]));
   context.document.querySelectorAll = () => tabs;
   context.document.getElementById = id => panels[id];
   context.document.querySelector = id => nodes[id];
   context.setupTabs();
   tabs[1].listeners.click();
-  assert.equal(panels['panel-timeline'].hidden, false);
+  assert.equal(panels['panel-weekly'].hidden, false);
   tabs[0].listeners.click();
   assert.equal(panels['panel-devices'].hidden, false);
   assert.equal(Object.values(panels).filter(panel => !panel.hidden).length, 1);
@@ -122,21 +130,19 @@ test('tabs show one panel, support keyboard navigation and keep selection during
   context.render({demo: true, start, end: start + 3600, devices: []});
   assert.equal(panels['panel-devices'].hidden, false);
   assert.equal(tabs[0].attrs['aria-selected'], 'true');
-  assert.equal(nodes['#timeline'].children.length, 1);
-  assert.equal(nodes['#hourly'].children.length, 1);
   assert.equal(nodes['#weekly'].children.length, 1);
 
   let prevented = false;
   const key = (tab, key) => tab.listeners.keydown({key, preventDefault() { prevented = true; }});
-  key(tabs[3], 'End');
+  key(tabs[1], 'End');
   assert.equal(panels['panel-outages'].hidden, false);
-  assert.equal(tabs[4].focused, true);
+  assert.equal(tabs[2].focused, true);
   assert.equal(prevented, true);
-  key(tabs[4], 'ArrowRight');
+  key(tabs[2], 'ArrowRight');
   assert.equal(panels['panel-devices'].hidden, false);
   key(tabs[0], 'ArrowLeft');
   assert.equal(panels['panel-outages'].hidden, false);
-  key(tabs[4], 'Home');
+  key(tabs[2], 'Home');
   assert.equal(panels['panel-devices'].hidden, false);
   assert.equal(Object.values(panels).filter(panel => !panel.hidden).length, 1);
 });

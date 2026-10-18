@@ -1,6 +1,11 @@
 import asyncio
 import hashlib
 import hmac
+import importlib
+from datetime import datetime
+from types import SimpleNamespace
+
+import pytest
 import time
 
 import httpx
@@ -186,3 +191,33 @@ def test_network_timeout_is_unknown(tmp_path):
         assert store.latest('one')['state'] == 'unknown'
         assert store.latest('one')['error_code'] == 'network_error'
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(('start_iso', 'now_iso', 'end_iso', 'hours'), [
+    ('2026-10-17T21:00:00+00:00', '2026-10-18T09:00:00+00:00', '2026-10-18T21:00:00+00:00', 24),
+    ('2026-03-28T22:00:00+00:00', '2026-03-29T20:30:00+00:00', '2026-03-29T21:00:00+00:00', 23),
+    ('2026-10-24T21:00:00+00:00', '2026-10-25T21:30:00+00:00', '2026-10-25T22:00:00+00:00', 25),
+    ('2026-10-17T21:00:00+00:00', '2026-10-17T21:00:00+00:00', '2026-10-18T21:00:00+00:00', 24),
+])
+def test_current_kyiv_day_includes_midnight_even_on_dst_days(tmp_path, monkeypatch, start_iso, now_iso, end_iso, hours):
+    module = importlib.import_module('socketstat.app')
+    start, now, end = [datetime.fromisoformat(value).timestamp() for value in (start_iso, now_iso, end_iso)]
+
+    async def idle_collector(*args):
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(module, 'collect', idle_collector)
+    monkeypatch.setattr(module, 'time', SimpleNamespace(time=lambda: now))
+    config = settings(tmp_path)
+    with TestClient(create_app(config)) as client:
+        client.app.state.store.save('one', int(start), start + 1, 'offline')
+        data = client.get('/api/dashboard?hours=1', auth=('admin', 'long-test-password')).json()
+    assert data['today'] == {'start': start, 'end': end}
+    assert end - start == hours * 3600
+    intervals = data['devices'][0]['today_intervals']
+    if now == start:
+        assert intervals == []
+    else:
+        assert intervals[0] == {'start': start, 'end': start + 60, 'state': 'offline'}
+        assert intervals[-1]['end'] == now
+        assert data['devices'][1]['today_intervals'] == [{'start': start, 'end': now, 'state': 'unknown'}]

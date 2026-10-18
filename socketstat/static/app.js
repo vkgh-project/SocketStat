@@ -3,7 +3,6 @@ const labels = {online: 'Доступна', offline: 'Недоступна', unk
 const socketColors = ['var(--socket-1)', 'var(--socket-2)'];
 const dateFormat = new Intl.DateTimeFormat('uk-UA', {timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
 const historyHours = 24;
-const timelineHours = 2;
 let loading = false;
 const date = value => dateFormat.format(new Date(value * 1000));
 function duration(seconds) {
@@ -22,63 +21,6 @@ function svgElement(tag, attrs, text) {
   Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
   if (text !== undefined) node.textContent = text;
   return node;
-}
-function timeline(devices, start, end) {
-  const left = 48, right = 980, top = 48, rowHeight = 80, rowGap = 152;
-  const bottom = top + Math.max(0, devices.length - 1) * rowGap + rowHeight;
-  const axis = bottom + 28, chartHeight = axis + 56;
-  const x = timestamp => left + (timestamp - start) / (end - start) * (right - left);
-  const svg = svgElement('svg', {viewBox: `0 0 1000 ${chartHeight}`, role: 'img', 'aria-label': `Історія доступності: ${devices.map(device => device.name).join(', ')}. Кожна розетка в окремому ряду, одна над одною, зі спільною шкалою часу; 1 — доступна, 0 — недоступна; розриви — немає даних.`, class: 'timeline'});
-  svg.append(svgElement('title', {}, `${devices.map(device => device.name).join(', ')}: ${date(start)} — ${date(end)}`));
-  for (let i = 0; i <= 8; i++) {
-    const tick = left + (right - left) * i / 8;
-    svg.append(svgElement('line', {x1: tick, x2: tick, y1: top, y2: bottom, class: 'chart-grid'}));
-  }
-  svg.append(svgElement('path', {d: `M ${left} ${top} V ${axis} H ${right}`, class: 'chart-axis'}));
-  devices.forEach((device, deviceIndex) => {
-    const rowTop = top + deviceIndex * rowGap;
-    const y = state => rowTop + (state === 'online' ? 0 : rowHeight);
-    svg.append(svgElement('text', {x: left, y: rowTop - 18, class: 'timeline-device'}, device.name));
-    for (const [value, level] of [[1, y('online')], [0, y('offline')]]) {
-      svg.append(svgElement('line', {x1: left, x2: right, y1: level, y2: level, class: 'chart-grid'}),
-        svgElement('text', {x: left - 16, y: level + 4, 'text-anchor': 'end', class: 'chart-value'}, value));
-    }
-    device.intervals.forEach((interval, index) => {
-      if (interval.state === 'unknown') return;
-      const a = x(interval.start), b = x(interval.end);
-      const previous = device.intervals[index - 1];
-      const connected = previous && previous.state !== 'unknown' && previous.end === interval.start;
-      // Each socket has its own 0/1 row and gaps, with a shared time scale.
-      const d = connected
-        ? `M ${a} ${y(previous.state)} V ${y(interval.state)} H ${b}`
-        : `M ${a} ${y(interval.state)} H ${b}`;
-      const caption = `${device.name}: ${labels[interval.state]} (${interval.state === 'online' ? 1 : 0}): ${date(interval.start)} — ${date(interval.end)} (≈ ${duration(interval.end - interval.start)})`;
-      const path = svgElement('path', {
-        d, stroke: socketColors[deviceIndex % socketColors.length],
-        class: `chart-step socket-line-${deviceIndex}`, tabindex: 0, 'aria-label': caption,
-      });
-      path.append(svgElement('title', {}, caption));
-      svg.append(path);
-    });
-  });
-  for (let i = 0; i <= 4; i++) {
-    const tick = left + (right - left) * i / 4;
-    svg.append(svgElement('line', {x1: tick, x2: tick, y1: axis, y2: axis + 5, class: 'chart-axis'}));
-    svg.append(svgElement('text', {x: tick, y: axis + 25, 'text-anchor': i === 0 ? 'start' : i === 4 ? 'end' : 'middle'}, date(start + (end - start) * i / 4)));
-  }
-  svg.append(svgElement('text', {x: (left + right) / 2, y: chartHeight - 5, 'text-anchor': 'middle'}, 'Час · Київ'));
-  return svg;
-}
-function chartPanel(devices, start, end) {
-  const panel = el('section', undefined, 'panel');
-  panel.append(el('h2', 'Доступність розеток · останні 2 години', 'chart-title'));
-  const chart = el('div', undefined, 'chart-scroll');
-  chart.append(timeline(devices, start, end));
-  panel.append(chart);
-  const legend = el('div', undefined, 'legend');
-  devices.forEach((device, index) => legend.append(el('span', device.name, `socket-key-${index}`)));
-  panel.append(legend, el('p', 'Кожна розетка показана в окремому ряду, одна над одною, зі спільною шкалою часу. 1 — доступна · 0 — недоступна · розрив лінії — немає даних.', 'hint'));
-  return panel;
 }
 const localPartsFormat = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -157,41 +99,6 @@ function chartPatterns(prefix, series) {
   });
   return defs;
 }
-function hourlyPanel(series) {
-  const panel = el('section', undefined, 'panel');
-  panel.append(el('h2', 'Недоступність за годинами доби', 'chart-title'));
-  const svg = svgElement('svg', {viewBox: '0 0 1000 300', class: 'hourly-chart', role: 'img', 'aria-label': 'Стовпчики: години доби 00–23, хвилини доступності суцільною заливкою, недоступності штрихуванням, без даних сірими крапками для кожної розетки.'});
-  svg.append(chartPatterns('hourly', series));
-  const left = 60, right = 980, top = 30, baseline = 232, group = (right - left) / 24;
-  const maximum = Math.max(60, ...series.flatMap(device => device.hourly.map(h => h.total / 60)));
-  const tick = Math.ceil(maximum / 4 / 15) * 15, ceiling = tick * 4;
-  const height = minutes => minutes / ceiling * (baseline - top);
-  svg.append(svgElement('text', {x: left, y: 15}, 'Хвилини'));
-  for (let i = 0; i <= 4; i++) {
-    const value = tick * i, y = baseline - height(value);
-    svg.append(svgElement('line', {x1: left, x2: right, y1: y, y2: y, class: 'chart-grid'}),
-      svgElement('text', {x: left - 10, y: y + 4, 'text-anchor': 'end'}, value));
-  }
-  for (let hour = 0; hour < 24; hour++) {
-    svg.append(svgElement('text', {x: left + group * (hour + .5), y: 254, 'text-anchor': 'middle'}, String(hour).padStart(2, '0')));
-    series.forEach((device, index) => {
-      const cell = device.hourly[hour];
-      const online = Math.max(0, cell.known - cell.offline) / 60;
-      const offline = cell.offline / 60, missing = Math.max(0, cell.total - cell.known) / 60;
-      const width = (group - 10) / series.length, x = left + hour * group + 5 + index * width;
-      const caption = `${device.name}, ${String(hour).padStart(2, '0')}:00–${String(hour + 1).padStart(2, '0')}:00: доступна ≈ ${duration(online * 60)}; недоступна ≈ ${duration(cell.offline)}; немає даних ≈ ${duration(missing * 60)}; покриття ${cell.total ? Math.round(cell.known / cell.total * 100) : 0}%.`;
-      if (online) svg.append(titledRect({x, y: baseline - height(online), width: width - 2, height: height(online), fill: socketColors[index % socketColors.length]}, caption));
-      if (offline) svg.append(titledRect({x, y: baseline - height(online + offline), width: width - 2, height: height(offline), fill: `url(#hourly-offline-${index})`}, caption));
-      if (missing) svg.append(titledRect({x, y: baseline - height(online + offline + missing), width: width - 2, height: height(missing), fill: 'url(#hourly-missing)'}, caption));
-      if (!cell.total) svg.append(titledRect({x, y: baseline - 2, width: width - 2, height: 2, fill: 'url(#hourly-missing)'}, `${device.name}, ${hour}:00: година поза вибраним періодом.`));
-    });
-  }
-  svg.append(svgElement('path', {d: `M ${left} ${top} V ${baseline} H ${right}`, class: 'chart-axis'}),
-    svgElement('text', {x: 520, y: 286, 'text-anchor': 'middle'}, 'Година доби · Київ'));
-  const chart = el('div', undefined, 'chart-scroll'); chart.append(svg);
-  panel.append(chart, socketLegend(series, true), el('p', 'Кожен стовпчик містить хвилини доступності (суцільна заливка), недоступності (кольорове штрихування) та без даних (сірі крапки). Колір позначає розетку. Для кількох днів сума за одну годину доби може перевищувати 60 хв.', 'hint'));
-  return panel;
-}
 function weeklyPanel(series, start, end) {
   const panel = el('section', undefined, 'panel');
   const header = el('div', undefined, 'section-head');
@@ -247,7 +154,42 @@ function weeklyPanel(series, start, end) {
   return panel;
 }
 
-function card(device) {
+function dailyTimeline(device, today, now) {
+  const section = el('div', undefined, 'daily-timeline');
+  section.append(el('h3', `Сьогодні · ${shortDay(localParts(today.start).day)} · Київ`));
+  const svg = svgElement('svg', {viewBox: '0 0 1000 90', class: 'daily-bar', role: 'img',
+    'aria-label': `${device.name}: доступність за поточний день від 00:00 до 23:59. Зелений — доступна, червоний — недоступна, сірий — немає даних, світлий — майбутній час.`});
+  const x = timestamp => (timestamp - today.start) / (today.end - today.start) * 1000;
+  const observedEnd = Math.max(today.start, Math.min(now, today.end));
+  svg.append(svgElement('rect', {x: 0, y: 8, width: 1000, height: 32, class: 'daily-future'}));
+  svg.append(titledRect({x: 0, y: 8, width: x(observedEnd), height: 32, class: 'daily-unknown'}, 'Немає даних'));
+  device.today_intervals.forEach(interval => {
+    const start = Math.max(today.start, interval.start), end = Math.min(observedEnd, interval.end);
+    if (end <= start) return;
+    svg.append(titledRect({x: x(start), y: 8, width: x(end) - x(start), height: 32,
+      class: `daily-${interval.state}`}, `${labels[interval.state]}: ${date(start)} — ${date(end)} (≈ ${duration(end - start)})`));
+  });
+  // UTC positions preserve actual elapsed time on 23- and 25-hour days.
+  const ticks = [{timestamp: today.start, label: '00:00'}];
+  for (let timestamp = today.start + 3600; timestamp < today.end; timestamp += 3600) {
+    const hour = localParts(timestamp).hour;
+    if ([6, 12, 18].includes(hour)) ticks.push({timestamp, label: `${String(hour).padStart(2, '0')}:00`});
+  }
+  ticks.push({timestamp: today.end, label: '23:59'});
+  ticks.forEach(({timestamp, label}, index) => {
+    svg.append(svgElement('line', {x1: x(timestamp), x2: x(timestamp), y1: 43, y2: 50, class: 'chart-axis'}),
+      svgElement('text', {x: x(timestamp), y: 78, 'text-anchor': index === 0 ? 'start' : index === ticks.length - 1 ? 'end' : 'middle'}, label));
+  });
+  const marker = svgElement('line', {x1: x(observedEnd), x2: x(observedEnd), y1: 3, y2: 45, class: 'daily-now'});
+  marker.append(svgElement('title', {}, `Станом на ${date(observedEnd)}`));
+  svg.append(marker);
+  const legend = el('div', undefined, 'legend daily-legend');
+  [['online', 'Доступна'], ['offline', 'Недоступна'], ['unknown', 'Немає даних'], ['future', 'Майбутній час']]
+    .forEach(([state, label]) => legend.append(el('span', label, `daily-key-${state}`)));
+  section.append(svg, legend);
+  return section;
+}
+function card(device, today, now) {
   const panel = el('section', undefined, 'panel');
   const head = el('div', undefined, 'section-head');
   head.append(el('h2', device.name), el('span', labels[device.state], `badge ${device.state}`));
@@ -268,20 +210,14 @@ function card(device) {
     metric.append(el('p', label), el('strong', value));
     metrics.append(metric);
   });
-  panel.append(metrics);
+  panel.append(metrics, dailyTimeline(device, today, now));
   return panel;
 }
 function render(data) {
   document.querySelector('#demo').hidden = !data.demo;
   const series = aggregateCharts(data.devices, data.start, data.end);
-  const timelineStart = data.end - timelineHours * 3600;
-  const recentDevices = data.devices.map(device => ({...device, intervals: device.intervals
-    .filter(interval => interval.end > timelineStart && interval.start < data.end)
-    .map(interval => ({...interval, start: Math.max(interval.start, timelineStart), end: Math.min(interval.end, data.end)}))}));
-  document.querySelector('#timeline').replaceChildren(chartPanel(recentDevices, timelineStart, data.end));
-  document.querySelector('#hourly').replaceChildren(hourlyPanel(series));
   document.querySelector('#weekly').replaceChildren(weeklyPanel(series, data.start, data.end));
-  document.querySelector('#devices').replaceChildren(...data.devices.map(device => card(device)));
+  document.querySelector('#devices').replaceChildren(...data.devices.map(device => card(device, data.today, data.end)));
   document.querySelector('#period').textContent = `Статистика за останню добу: ${date(data.start)} — ${date(data.end)}`;
   const outages = [];
   data.devices.forEach(device => device.intervals.filter(i => i.state === 'offline').forEach(interval => outages.push({...interval, name: device.name})));
