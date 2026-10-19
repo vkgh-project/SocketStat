@@ -1,4 +1,4 @@
-"""Portable Windows entry point; writable files stay beside SocketStat.exe."""
+"""Portable desktop entry point; writable files stay beside the executable."""
 import argparse
 import os
 from pathlib import Path
@@ -60,6 +60,9 @@ def main():
             threading.Thread(target=open_when_ready, daemon=True).start()
         try:
             server.run(sockets=[listener])
+        except KeyboardInterrupt:
+            # Uvicorn re-raises Ctrl+C after completing graceful shutdown.
+            pass
         finally:
             stopped.set()
         return 0 if server.started else 1

@@ -5,6 +5,7 @@
 .venv-windows/
 build/
 /dist/windows/
+/dist/macos/
 /dist/*.exe
 __pycache__/
 .pytest_cache/

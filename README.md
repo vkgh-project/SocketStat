@@ -83,6 +83,21 @@ uv pip install --python .\.venv\Scripts\python.exe -r requirements-build.txt
 
 Без `uv` встановіть залежності командою `.\.venv\Scripts\python.exe -m pip install -r requirements-build.txt`. Результат — `dist/SocketStat.exe` та `dist/.env.example`. Python, бібліотеки та статичні файли включені в `.exe`; готовий файл призначений для Windows тієї самої архітектури, що й Python збірки (поточна збірка — x64).
 
+### macOS: готова збірка без Python
+
+Розпакуйте `SocketStat-macos-arm64.zip` у папку, доступну для запису, наприклад «Документи». Запустіть `Start SocketStat.command` подвійним клацанням. Перший запуск створить `.env` поруч із виконуваним файлом: заповніть його налаштуваннями Tuya та паролем панелі від 12 символів і запустіть повторно. Відкриється браузер із http://127.0.0.1:8000. Залишайте Terminal відкритим; зупинка — `Ctrl+C`. Історія зберігається в `data/socketstat.db` поруч із програмою. Під час сну Mac перевірки не виконуються.
+
+Збірка для Apple Silicon має архітектуру arm64; для Intel потрібно зібрати програму на Intel Mac. Збірка має локальний ad-hoc підпис без нотаризації Apple. Якщо macOS блокує завантажену копію, для довіреного джерела скористайтеся **System Settings → Privacy & Security → Open Anyway**.
+
+Для повторної збірки на macOS:
+
+```sh
+./.venv/bin/python -m pip install -r requirements-build.txt
+./.venv/bin/python build_macos.py
+```
+
+Результат — папка `dist/macos/SocketStat` та ZIP-архів у `dist/macos`. Python, бібліотеки й статичні файли включені; локальні ключі та історія не включені. Параметри `--port 8001` і `--no-browser` можна передати виконуваному файлу `SocketStat` у Terminal.
+
 ### macOS (Terminal, zsh/bash)
 
 Зі встановленим Python 3.9+ створіть середовище та встановіть залежності:
