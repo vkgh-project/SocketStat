@@ -94,12 +94,12 @@ function chartPatterns(prefix, series) {
   series.forEach((device, index) => {
     const offline = svgElement('pattern', {id: `${prefix}-offline-${index}`, width: 6, height: 6, patternUnits: 'userSpaceOnUse'});
     offline.append(svgElement('rect', {width: 6, height: 6, fill: 'var(--paper)'}),
-      svgElement('path', {d: 'M -1 1 L 5 7 M 3 -1 L 7 3', stroke: socketColors[index % socketColors.length], 'stroke-width': 2}));
+      svgElement('path', {d: 'M -1 1 L 5 7 M 3 -1 L 7 3', stroke: 'var(--offline)', 'stroke-width': 2}));
     defs.append(offline);
   });
   return defs;
 }
-function weeklyPanel(series, start, end) {
+function weeklyPanel(series, start, end, prefix = 'weekly') {
   const panel = el('section', undefined, 'panel');
   const header = el('div', undefined, 'section-head');
   header.append(el('h2', 'Тижневий розклад', 'chart-title'));
@@ -112,13 +112,14 @@ function weeklyPanel(series, start, end) {
     const option = el('option', `${shortDay(week)}–${shortDay(shiftDay(week, 6))}`);
     option.value = week; option.selected = week === selectedWeek; select.append(option);
   });
+  select.value = selectedWeek;
   const chart = el('div', undefined, 'chart-scroll');
   function draw() {
-    const svg = svgElement('svg', {viewBox: '0 0 1000 280', class: 'weekly-chart', role: 'img', 'aria-label': 'Тижневий розклад: години по горизонталі, дні тижня по вертикалі, дві смуги в кожній клітинці — дві розетки. Доступність — суцільна заливка, недоступність — штрихування, немає даних — сірі крапки.'});
-    svg.append(chartPatterns('weekly', series));
+    const svg = svgElement('svg', {viewBox: '0 0 1000 256', class: 'weekly-chart', role: 'img', 'aria-label': 'Тижневий розклад: години по горизонталі, дні тижня по вертикалі, дві смуги в кожній клітинці — дві розетки. Доступність — суцільна заливка, недоступність — штрихування, немає даних — сірі крапки.'});
+    svg.append(chartPatterns(prefix, series));
     const left = 88, top = 36, width = 888 / 24, row = 30;
     ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].forEach((label, dayIndex) => {
-      const day = shiftDay(selectedWeek, dayIndex);
+      const day = shiftDay(select.value, dayIndex);
       const labelY = top + dayIndex * row;
       svg.append(svgElement('text', {x: left - 12, y: labelY + 11, 'text-anchor': 'end'}, label),
         svgElement('text', {x: left - 12, y: labelY + 24, 'text-anchor': 'end'}, shortDay(day)));
@@ -130,8 +131,8 @@ function weeklyPanel(series, start, end) {
           const x = left + hour * width + 2, y = top + dayIndex * row + 4 + index * 11;
           const caption = `${device.name}, ${shortDay(day)} ${String(hour).padStart(2, '0')}:00: доступна ≈ ${duration(online)}; недоступна ≈ ${duration(cell.offline)}; немає даних ≈ ${duration(missing)}. Довжина частини смуги — тривалість стану, без відображення порядку подій у межах години.`;
           if (online) svg.append(titledRect({x, y, width: (width - 4) * online / total, height: 9, fill: socketColors[index % socketColors.length]}, caption));
-          if (cell.offline) svg.append(titledRect({x: x + (width - 4) * online / total, y, width: (width - 4) * cell.offline / total, height: 9, fill: `url(#weekly-offline-${index})`}, caption));
-          if (missing) svg.append(titledRect({x: x + (width - 4) * (1 - missing / total), y, width: (width - 4) * missing / total, height: 9, fill: 'url(#weekly-missing)'}, caption));
+          if (cell.offline) svg.append(titledRect({x: x + (width - 4) * online / total, y, width: (width - 4) * cell.offline / total, height: 9, fill: `url(#${prefix}-offline-${index})`}, caption));
+          if (missing) svg.append(titledRect({x: x + (width - 4) * (1 - missing / total), y, width: (width - 4) * missing / total, height: 9, fill: `url(#${prefix}-missing)`}, caption));
         });
       }
     });
@@ -144,8 +145,7 @@ function weeklyPanel(series, start, end) {
       const y = top + day * row;
       svg.append(svgElement('line', {x1: left, x2: left + width * 24, y1: y, y2: y, class: 'chart-grid'}));
     }
-    svg.append(svgElement('rect', {x: left, y: top, width: width * 24, height: row * 7, class: 'weekly-frame'}),
-      svgElement('text', {x: left + width * 12, y: 273, 'text-anchor': 'middle'}, 'Година доби · Київ'));
+    svg.append(svgElement('rect', {x: left, y: top, width: width * 24, height: row * 7, class: 'weekly-frame'}));
     chart.replaceChildren(svg);
   }
   select.addEventListener('change', () => { selectedWeek = select.value; draw(); });
@@ -157,7 +157,7 @@ function weeklyPanel(series, start, end) {
 function dailyTimeline(device, today, now) {
   const section = el('div', undefined, 'daily-timeline');
   const svg = svgElement('svg', {viewBox: '0 0 1000 90', class: 'daily-bar', role: 'img',
-    'aria-label': `${device.name}: доступність за поточний день від 00:00 до 23:59. Зелений — доступна, червоний — недоступна, сірий — немає даних, світлий — майбутній час.`});
+    'aria-label': `${device.name}: доступність за поточний день від 00:00 до 23:59. Зелений — доступна, кораловий — недоступна, сірий — немає даних, темний — майбутній час.`});
   const x = timestamp => (timestamp - today.start) / (today.end - today.start) * 1000;
   const observedEnd = Math.max(today.start, Math.min(now, today.end));
   svg.append(svgElement('rect', {x: 0, y: 8, width: 1000, height: 32, class: 'daily-future'}));
@@ -199,21 +199,34 @@ function card(device, today, now) {
   const stats = device.stats;
   const metrics = el('div', undefined, 'metrics');
   const values = [
-    ['ДОСТУПНІСТЬ', stats.availability_percent === null ? '—' : `${stats.availability_percent}%`],
-    ['НЕДОСТУПНА ≈', duration(stats.seconds.offline)],
-    ['НАЙДОВШИЙ ПЕРІОД ≈', duration(stats.longest_offline_seconds)],
-    ['ПОКРИТТЯ ДАНИМИ', `${stats.coverage_percent}%`],
+    ['Доступність', stats.availability_percent === null ? '—' : `${stats.availability_percent}%`],
+    ['Недоступна ≈', duration(stats.seconds.offline)],
+    ['Покриття даними', `${stats.coverage_percent}%`],
   ];
   values.forEach(([label, value]) => {
     const metric = el('div', undefined, 'metric');
     metric.append(el('p', label), el('strong', value));
     metrics.append(metric);
   });
-  panel.append(metrics, dailyTimeline(device, today, now));
+  const longest = el('p', 'Найдовший період недоступності ≈ ', 'metric-secondary');
+  longest.append(el('strong', duration(stats.longest_offline_seconds)));
+  panel.append(metrics, longest, dailyTimeline(device, today, now));
   return panel;
+}
+function overallStatus(devices) {
+  const offline = devices.filter(device => device.state === 'offline').length;
+  const unknown = devices.filter(device => device.state === 'unknown').length;
+  if (!devices.length) return {state: 'unknown', text: 'Ще немає даних про розетки'};
+  if (unknown) return {state: 'unknown', text: 'Є розетки без актуальних даних'};
+  if (offline) return {state: 'offline', text: offline === devices.length ? 'Обидві розетки недоступні' : 'Одна розетка недоступна'};
+  return {state: 'online', text: 'Обидві розетки доступні'};
 }
 function render(data) {
   document.querySelector('#demo').hidden = !data.demo;
+  const status = overallStatus(data.devices);
+  const summary = document.querySelector('#summary');
+  summary.className = `summary ${status.state}`;
+  summary.replaceChildren(el('strong', status.text));
   const series = aggregateCharts(data.devices, data.start, data.end);
   document.querySelector('#weekly').replaceChildren(weeklyPanel(series, data.start, data.end));
   document.querySelector('#devices').replaceChildren(...data.devices.map(device => card(device, data.today, data.end)));

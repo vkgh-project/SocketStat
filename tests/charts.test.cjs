@@ -70,6 +70,29 @@ test('weekly panel renders even when all observations are missing', () => {
   assert.equal(context.weeklyPanel(series, start, end).tag, 'section');
 });
 
+test('summary distinguishes online, offline and missing observations', () => {
+  const context = load();
+  const status = states => context.overallStatus(states.map(state => ({state})));
+  assert.equal(status(['online', 'online']).state, 'online');
+  assert.equal(status(['online', 'offline']).state, 'offline');
+  assert.equal(status(['offline', 'offline']).text, 'Обидві розетки недоступні');
+  assert.equal(status(['online', 'unknown']).state, 'unknown');
+  assert.equal(status(['offline', 'unknown']).state, 'unknown');
+  assert.equal(status([]).state, 'unknown');
+});
+
+test('weekly overview uses its own SVG pattern IDs', () => {
+  const context = load(), start = seconds('2026-10-15T00:00:00Z'), end = start + 3600;
+  const series = context.aggregateCharts([{name: 'one', intervals: [{start, end, state: 'offline'}]}], start, end);
+  const overview = context.weeklyPanel(series, start, end, 'overview');
+  const svg = overview.children[1].children[0];
+  const ids = svg.children[0].children.map(node => node.attrs.id);
+  assert.ok(ids.includes('overview-missing'));
+  assert.ok(ids.includes('overview-offline-0'));
+  assert.ok(svg.children.some(node => node.attrs.fill === 'url(#overview-offline-0)'));
+  assert.ok(svg.children.some(node => node.attrs.fill === 'url(#overview-missing)'));
+});
+
 test('daily bar clips intervals at midnight and now, with separate missing and future states', () => {
   const context = load(), start = seconds('2026-10-14T21:00:00Z');
   const now = start + 43200, end = start + 86400;
@@ -113,7 +136,7 @@ test('tabs show one panel, support keyboard navigation and keep selection during
     panels[`panel-${name}`] = {hidden: index !== 0};
     return tab;
   });
-  const nodes = Object.fromEntries(['demo', 'weekly', 'devices', 'outages'].map(id => [`#${id}`, element('div')]));
+  const nodes = Object.fromEntries(['demo', 'summary', 'weekly', 'devices', 'outages'].map(id => [`#${id}`, element('div')]));
   context.document.querySelectorAll = () => tabs;
   context.document.getElementById = id => panels[id];
   context.document.querySelector = id => nodes[id];
