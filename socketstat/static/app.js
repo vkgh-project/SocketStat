@@ -156,7 +156,6 @@ function weeklyPanel(series, start, end) {
 
 function dailyTimeline(device, today, now) {
   const section = el('div', undefined, 'daily-timeline');
-  section.append(el('h3', `Сьогодні · ${shortDay(localParts(today.start).day)} · Київ`));
   const svg = svgElement('svg', {viewBox: '0 0 1000 90', class: 'daily-bar', role: 'img',
     'aria-label': `${device.name}: доступність за поточний день від 00:00 до 23:59. Зелений — доступна, червоний — недоступна, сірий — немає даних, світлий — майбутній час.`});
   const x = timestamp => (timestamp - today.start) / (today.end - today.start) * 1000;
@@ -218,7 +217,6 @@ function render(data) {
   const series = aggregateCharts(data.devices, data.start, data.end);
   document.querySelector('#weekly').replaceChildren(weeklyPanel(series, data.start, data.end));
   document.querySelector('#devices').replaceChildren(...data.devices.map(device => card(device, data.today, data.end)));
-  document.querySelector('#period').textContent = `Статистика за останню добу: ${date(data.start)} — ${date(data.end)}`;
   const outages = [];
   data.devices.forEach(device => device.intervals.filter(i => i.state === 'offline').forEach(interval => outages.push({...interval, name: device.name})));
   outages.sort((a, b) => b.start - a.start);

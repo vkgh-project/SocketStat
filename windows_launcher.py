@@ -32,7 +32,7 @@ def main():
         print(f'Створено {env_path}. Заповніть налаштування та запустіть програму повторно.')
         return 1
     load_dotenv(env_path)
-    settings = Settings.from_env()
+    settings = Settings.from_env(require_dashboard_auth=False)
 
     # Reserve the port before opening the browser: a second launch cannot
     # accidentally open another service or start a duplicate collector.
@@ -41,7 +41,7 @@ def main():
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         listener.bind(('127.0.0.1', args.port))
         listener.listen(128)
-        config = uvicorn.Config(create_app(settings), host='127.0.0.1', port=args.port,
+        config = uvicorn.Config(create_app(settings, local=True), host='127.0.0.1', port=args.port,
                                 loop='asyncio', http='h11', ws='none', workers=1)
         server = uvicorn.Server(config)
         stopped = threading.Event()

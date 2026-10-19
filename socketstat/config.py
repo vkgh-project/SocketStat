@@ -22,7 +22,7 @@ class Settings:
     demo: bool = False
 
     @classmethod
-    def from_env(cls):
+    def from_env(cls, *, require_dashboard_auth=True):
         demo = os.getenv('DEMO_MODE', 'false').lower() == 'true'
         devices = tuple(Device(
             os.getenv(f'SOCKET_{i}_ID', '') or (f'demo-{i}' if demo else ''),
@@ -32,7 +32,7 @@ class Settings:
         secret = os.getenv('TUYA_CLIENT_SECRET', '')
         username = os.getenv('DASHBOARD_USER', 'admin')
         password = os.getenv('DASHBOARD_PASSWORD', '')
-        if not username or len(password) < 12:
+        if require_dashboard_auth and (not username or len(password) < 12):
             raise ValueError('Set DASHBOARD_USER and DASHBOARD_PASSWORD (at least 12 characters)')
         if not demo and (not client_id or not secret):
             raise ValueError('Set TUYA_CLIENT_ID and TUYA_CLIENT_SECRET')

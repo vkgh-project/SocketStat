@@ -152,6 +152,34 @@ def test_app_auth_and_dashboard(tmp_path):
         assert response.headers['cache-control'] == 'no-store'
 
 
+def test_local_dashboard_requires_no_credentials(tmp_path):
+    with TestClient(create_app(settings(tmp_path), local=True),
+                    base_url='http://127.0.0.1:8000', client=('127.0.0.1', 50000)) as client:
+        for path in ('/', '/assets/app.js', '/assets/style.css', '/api/dashboard'):
+            assert client.get(path).status_code == 200
+
+
+@pytest.mark.parametrize(('host', 'peer'), [
+    ('127.0.0.1', '192.168.1.10'),
+    ('192.168.1.10', '127.0.0.1'),
+])
+def test_local_dashboard_rejects_non_loopback_connections(tmp_path, host, peer):
+    with TestClient(create_app(settings(tmp_path), local=True),
+                    base_url=f'http://{host}:8000', client=(peer, 50000)) as client:
+        assert client.get('/api/dashboard').status_code == 403
+
+
+def test_local_settings_allow_no_dashboard_password(monkeypatch):
+    monkeypatch.setenv('DEMO_MODE', 'true')
+    monkeypatch.setenv('SOCKET_1_ID', '')
+    monkeypatch.setenv('SOCKET_2_ID', '')
+    monkeypatch.setenv('TUYA_ENDPOINT', 'https://openapi.tuyaeu.com')
+    monkeypatch.setenv('DASHBOARD_PASSWORD', '')
+    assert Settings.from_env(require_dashboard_auth=False).password == ''
+    with pytest.raises(ValueError, match='DASHBOARD_PASSWORD'):
+        Settings.from_env()
+
+
 def test_stale_observation_is_not_current_offline(tmp_path):
     config = settings(tmp_path)
     with TestClient(create_app(config)) as client:

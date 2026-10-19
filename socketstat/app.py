@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
@@ -19,16 +19,16 @@ from .timeline import summarize
 from .tuya import TuyaClient
 
 STATIC = Path(__file__).parent / 'static'
-security = HTTPBasic()
+security = HTTPBasic(auto_error=False)
 
 
-def create_app(settings=None):
+def create_app(settings=None, *, local=False):
     @asynccontextmanager
     async def lifespan(app):
         nonlocal settings
         if settings is None:
             load_dotenv()
-            settings = Settings.from_env()
+            settings = Settings.from_env(require_dashboard_auth=not local)
         app.state.settings = settings
         app.state.store = Store(settings.db_path)
         app.state.store.cleanup(time.time())
@@ -45,7 +45,16 @@ def create_app(settings=None):
     app = FastAPI(title='SocketStat', lifespan=lifespan, docs_url=None, redoc_url=None,
                   openapi_url=None)
 
-    def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
+    def authenticate(request: Request, credentials: HTTPBasicCredentials = Depends(security)):
+        if local:
+            loopback = {'127.0.0.1', '::1'}
+            server = request.scope.get('server')
+            if (server and server[0] in loopback and request.client
+                    and request.client.host in loopback):
+                return
+            raise HTTPException(403, 'Local dashboard requires a loopback connection')
+        if credentials is None:
+            raise HTTPException(401, 'Authentication required', headers={'WWW-Authenticate': 'Basic'})
         config = app.state.settings
         user_ok = secrets.compare_digest(credentials.username.encode(), config.username.encode())
         pass_ok = secrets.compare_digest(credentials.password.encode(), config.password.encode())
@@ -110,6 +119,11 @@ def create_app(settings=None):
                 'today': {'start': day_start, 'end': day_end}}
 
     return app
+
+
+def create_local_app():
+    """Password-free entry point; serve on 127.0.0.1 with --factory."""
+    return create_app(local=True)
 
 
 app = create_app()

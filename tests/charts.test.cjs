@@ -80,7 +80,7 @@ test('daily bar clips intervals at midnight and now, with separate missing and f
     {start: start + 40000, end: end + 3600, state: 'online'},
     {start: end, end: end + 3600, state: 'offline'},
   ];
-  const bar = context.dailyTimeline({name: 'one', today_intervals: intervals}, {start, end}, now).children[1];
+  const bar = context.dailyTimeline({name: 'one', today_intervals: intervals}, {start, end}, now).children[0];
   const rects = bar.children.filter(node => node.tag === 'rect');
   assert.equal(rects[0].attrs.class, 'daily-future');
   assert.equal(rects[0].attrs.width, 1000);
@@ -98,7 +98,7 @@ test('daily bar clips intervals at midnight and now, with separate missing and f
 
 test('daily bar places clock ticks by elapsed time on a 25-hour day', () => {
   const context = load(), start = seconds('2026-10-24T21:00:00Z'), end = seconds('2026-10-25T22:00:00Z');
-  const bar = context.dailyTimeline({name: 'one', today_intervals: []}, {start, end}, end).children[1];
+  const bar = context.dailyTimeline({name: 'one', today_intervals: []}, {start, end}, end).children[0];
   const noon = bar.children.find(node => node.textContent === '12:00');
   assert.equal(noon.attrs.x, 13 / 25 * 1000);
 });
@@ -113,7 +113,7 @@ test('tabs show one panel, support keyboard navigation and keep selection during
     panels[`panel-${name}`] = {hidden: index !== 0};
     return tab;
   });
-  const nodes = Object.fromEntries(['demo', 'weekly', 'devices', 'period', 'outages'].map(id => [`#${id}`, element('div')]));
+  const nodes = Object.fromEntries(['demo', 'weekly', 'devices', 'outages'].map(id => [`#${id}`, element('div')]));
   context.document.querySelectorAll = () => tabs;
   context.document.getElementById = id => panels[id];
   context.document.querySelector = id => nodes[id];
