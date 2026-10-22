@@ -25,7 +25,7 @@ async def check_website(settings, url):
                 auth=(settings.username, settings.password))
             print(f'Dashboard API: HTTP {response.status_code}')
             if response.status_code == 401:
-                print('Website credentials differ from this config.env, or the website has not reloaded it.')
+                print('Website credentials differ from this .env, or the website has not reloaded it.')
                 return
             if response.status_code != 200:
                 return
@@ -44,10 +44,10 @@ async def check_website(settings, url):
         print(f'Website check failed ({type(exc).__name__}).')
 
 
-async def main(website=None):
-    load_dotenv(Path(__file__).with_name('config.env'))
+async def main(website=None, env_file=None):
+    load_dotenv(env_file or Path(__file__).resolve().parents[1] / '.env')
     try:
-        settings = Settings.from_env()
+        settings = Settings.from_env(require_dashboard_auth=bool(website))
     except ValueError as exc:
         print(f'Configuration error: {exc}')
         return 1
@@ -56,7 +56,7 @@ async def main(website=None):
         await check_website(settings, website)
     if settings.demo:
         print('DEMO_MODE=true: the website uses simulated data, not Tuya.')
-        print('Set DEMO_MODE=false in config.env and reload the website.')
+        print('Set DEMO_MODE=false in .env and reload the website.')
         return 1
 
     async with httpx.AsyncClient(timeout=8, follow_redirects=False) as http:
@@ -85,12 +85,14 @@ async def main(website=None):
             results.append(await check(f'Socket {number}', lambda: client.online(device.id)))
         if all(results):
             print('Tuya access works from this console. If the dashboard is stale,')
-            print('reload the website and check its server log and config.env path.')
+            print('reload the website and check its server log and .env path.')
         return 0 if all(results) else 1
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--env-file', type=Path, default=Path(__file__).resolve().parents[1] / '.env',
+                        help='Configuration file; defaults to the project .env')
     parser.add_argument('--website', help='Your HTTPS PythonAnywhere website URL')
     args = parser.parse_args()
     if args.website:
@@ -100,4 +102,4 @@ if __name__ == '__main__':
                 parts.username or parts.password or parts.port or
                 parts.path not in ('', '/') or parts.query or parts.fragment):
             parser.error('Use an HTTPS URL like https://YOURUSERNAME.eu.pythonanywhere.com')
-    sys.exit(asyncio.run(main(args.website.rstrip('/') if args.website else None)))
+    sys.exit(asyncio.run(main(args.website.rstrip('/') if args.website else None, args.env_file)))

@@ -1,12 +1,11 @@
-import json
-import os
 import sqlite3
-import subprocess
 import tarfile
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
+pytest.importorskip('fcntl', reason='PythonAnywhere deployment requires a Unix host')
 
 import deploy_pythonanywhere as deploy
 from socketstat.app import create_app

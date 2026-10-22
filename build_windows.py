@@ -13,7 +13,7 @@ subprocess.run([
     '--name', 'SocketStat', '--distpath', 'dist/windows', '--workpath', 'build', '--specpath', 'build',
     '--add-data', f'{root / "socketstat" / "static"}:socketstat/static',
     '--add-data', f'{root / ".env.example"}:.',
-    'windows_launcher.py',
+    'desktop_launcher.py',
 ], cwd=root, check=True)
 shutil.copyfile(root / '.env.example', root / 'dist' / 'windows' / '.env.example')
 print('Created dist/windows/SocketStat.exe. No Python installation is required to run it.')

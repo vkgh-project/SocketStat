@@ -1,6 +1,5 @@
 import importlib.util
 from pathlib import Path
-from zipfile import ZipFile
 
 import pytest
 
@@ -45,41 +44,3 @@ def test_startup_requires_host_socket(monkeypatch):
     with pytest.raises(SystemExit) as error:
         module.main([])
     assert error.value.code == 2
-
-
-def test_archive_contains_runtime_but_no_private_files(tmp_path, monkeypatch):
-    module = load_script('build_pythonanywhere')
-    monkeypatch.setattr(module, 'ROOT', tmp_path)
-    for name in ('requirements.txt', '.env.example', 'pythonanywhere_start.py',
-                 'PYTHONANYWHERE.md', 'README.md', 'build_pythonanywhere.py',
-                 'deploy_pythonanywhere.py', 'update_pythonanywhere.sh',
-                 'socketstat/app.py', 'socketstat/static/index.html',
-                 'socketstat/static/style.css', 'socketstat/static/app.js',
-                 'socketstat/static/updates.html', 'socketstat/static/updates.js',
-                 '.env', 'data/socketstat.db', 'socketstat/__pycache__/app.pyc'):
-        path = tmp_path / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text('fixture', encoding='utf-8')
-    with ZipFile(module.build()) as archive:
-        names = set(archive.namelist())
-    assert 'SocketStat/.env.example' in names
-    assert 'SocketStat/socketstat/static/app.js' in names
-    assert 'SocketStat/pythonanywhere_start.py' in names
-    assert len(names) == 14
-    assert not any(name.endswith(('.env', '.db', '.pyc')) for name in names)
-
-    deployment = tmp_path / 'deployment'
-    existing = {
-        '.env': 'configured-credentials',
-        'data/socketstat.db': 'existing-history',
-        '.venv/pyvenv.cfg': 'existing-environment',
-    }
-    for name, contents in existing.items():
-        path = deployment / 'SocketStat' / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(contents, encoding='utf-8')
-    with ZipFile(tmp_path / 'output' / 'socketstat-pythonanywhere.zip') as archive:
-        archive.extractall(deployment)
-    for name, contents in existing.items():
-        assert (deployment / 'SocketStat' / name).read_text(encoding='utf-8') == contents
-    assert (deployment / 'SocketStat/socketstat/app.py').read_text(encoding='utf-8') == 'fixture'

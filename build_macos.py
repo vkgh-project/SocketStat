@@ -20,7 +20,7 @@ subprocess.run([
     '--workpath', 'build/macos', '--specpath', 'build/macos',
     '--add-data', f'{root / "socketstat" / "static"}:socketstat/static',
     '--add-data', f'{root / ".env.example"}:.',
-    'windows_launcher.py',
+    'desktop_launcher.py',
 ], cwd=root, check=True)
 shutil.copyfile(root / '.env.example', package / '.env.example')
 launcher = package / 'Start SocketStat.command'
@@ -30,7 +30,7 @@ launcher.chmod(0o755)
     'SocketStat for macOS (' + platform.machine() + ')\n\n'
     'Extract this folder to a writable location, such as Documents.\n'
     'Double-click Start SocketStat.command. The first launch creates .env;\n'
-    'edit it with your Tuya settings and a dashboard password (12+ characters),\n'
+    'edit it with your Tuya settings,\n'
     'then launch again. Credentials are not included in this package.\n'
     'The dashboard opens at http://127.0.0.1:8000. Keep Terminal open;\n'
     'press Ctrl+C to stop. The Mac must stay awake to collect observations.\n'
