@@ -85,18 +85,19 @@ function titledRect(attrs, caption) {
   rect.append(svgElement('title', {}, caption));
   return rect;
 }
+function offlinePattern(prefix, index) {
+  const pattern = svgElement('pattern', {id: `${prefix}-offline-${index}`, width: 6, height: 6, patternUnits: 'userSpaceOnUse'});
+  pattern.append(svgElement('rect', {width: 6, height: 6, fill: 'var(--paper)'}),
+    svgElement('path', {d: 'M -1 1 L 5 7 M 3 -1 L 7 3', stroke: socketColors[index % socketColors.length], 'stroke-width': 2}));
+  return pattern;
+}
 function chartPatterns(prefix, series) {
   const defs = svgElement('defs', {});
   const pattern = svgElement('pattern', {id: `${prefix}-missing`, width: 6, height: 6, patternUnits: 'userSpaceOnUse'});
   pattern.append(svgElement('rect', {width: 6, height: 6, fill: 'var(--chart-missing-bg)'}),
     svgElement('circle', {cx: 3, cy: 3, r: 1, fill: 'var(--chart-missing-line)'}));
   defs.append(pattern);
-  series.forEach((device, index) => {
-    const offline = svgElement('pattern', {id: `${prefix}-offline-${index}`, width: 6, height: 6, patternUnits: 'userSpaceOnUse'});
-    offline.append(svgElement('rect', {width: 6, height: 6, fill: 'var(--paper)'}),
-      svgElement('path', {d: 'M -1 1 L 5 7 M 3 -1 L 7 3', stroke: 'var(--offline)', 'stroke-width': 2}));
-    defs.append(offline);
-  });
+  series.forEach((device, index) => defs.append(offlinePattern(prefix, index)));
   return defs;
 }
 function weeklyPanel(series, start, end, prefix = 'weekly') {
@@ -154,10 +155,14 @@ function weeklyPanel(series, start, end, prefix = 'weekly') {
   return panel;
 }
 
-function dailyTimeline(device, today, now) {
-  const section = el('div', undefined, 'daily-timeline');
+function dailyTimeline(device, today, now, index = 0) {
+  const section = el('div', undefined, `daily-timeline socket-key-${index}`);
+  const prefix = `daily-${index}`;
   const svg = svgElement('svg', {viewBox: '0 0 1000 90', class: 'daily-bar', role: 'img',
-    'aria-label': `${device.name}: доступність за поточний день від 00:00 до 23:59. Зелений — доступна, кораловий — недоступна, сірий — немає даних, темний — майбутній час.`});
+    'aria-label': `${device.name}: доступність за поточний день від 00:00 до 23:59. Колір розетки: суцільна заливка — доступна, штрихування — недоступна, сірий — немає даних, темний — майбутній час.`});
+  const defs = svgElement('defs', {});
+  defs.append(offlinePattern(prefix, index));
+  svg.append(defs);
   const x = timestamp => (timestamp - today.start) / (today.end - today.start) * 1000;
   const observedEnd = Math.max(today.start, Math.min(now, today.end));
   svg.append(svgElement('rect', {x: 0, y: 8, width: 1000, height: 32, class: 'daily-future'}));
@@ -165,8 +170,10 @@ function dailyTimeline(device, today, now) {
   device.today_intervals.forEach(interval => {
     const start = Math.max(today.start, interval.start), end = Math.min(observedEnd, interval.end);
     if (end <= start) return;
-    svg.append(titledRect({x: x(start), y: 8, width: x(end) - x(start), height: 32,
-      class: `daily-${interval.state}`}, `${labels[interval.state]}: ${date(start)} — ${date(end)} (≈ ${duration(end - start)})`));
+    const attrs = {x: x(start), y: 8, width: x(end) - x(start), height: 32,
+      class: `daily-${interval.state}`};
+    if (interval.state === 'offline') attrs.fill = `url(#${prefix}-offline-${index})`;
+    svg.append(titledRect(attrs, `${labels[interval.state]}: ${date(start)} — ${date(end)} (≈ ${duration(end - start)})`));
   });
   // UTC positions preserve actual elapsed time on 23- and 25-hour days.
   const ticks = [{timestamp: today.start, label: '00:00'}];
@@ -188,10 +195,10 @@ function dailyTimeline(device, today, now) {
   section.append(svg, legend);
   return section;
 }
-function card(device, today, now) {
+function card(device, today, now, index = 0) {
   const panel = el('section', undefined, 'panel');
   const head = el('div', undefined, 'section-head');
-  head.append(el('h2', device.name), el('span', labels[device.state], `badge ${device.state}`));
+  head.append(el('h2', device.name, `device-key socket-key-${index}`), el('span', labels[device.state], `badge ${device.state}`));
   panel.append(head);
   let checked = device.last_checked_at ? `Остання перевірка: ${date(device.last_checked_at)}` : 'Ще немає перевірок';
   if (device.error_code) checked += ` · Помилка: ${device.error_code}`;
@@ -210,7 +217,7 @@ function card(device, today, now) {
   });
   const longest = el('p', 'Найдовший період недоступності ≈ ', 'metric-secondary');
   longest.append(el('strong', duration(stats.longest_offline_seconds)));
-  panel.append(metrics, longest, dailyTimeline(device, today, now));
+  panel.append(metrics, longest, dailyTimeline(device, today, now, index));
   return panel;
 }
 function overallStatus(devices) {
@@ -230,9 +237,9 @@ function render(data) {
   const weekly = data.weekly;
   const series = aggregateCharts(weekly.devices, weekly.start, weekly.end);
   document.querySelector('#weekly').replaceChildren(weeklyPanel(series, weekly.start, weekly.end));
-  document.querySelector('#devices').replaceChildren(...data.devices.map(device => card(device, data.today, data.end)));
+  document.querySelector('#devices').replaceChildren(...data.devices.map((device, index) => card(device, data.today, data.end, index)));
   const outages = [];
-  data.devices.forEach(device => device.intervals.filter(i => i.state === 'offline').forEach(interval => outages.push({...interval, name: device.name})));
+  data.devices.forEach((device, index) => device.intervals.filter(i => i.state === 'offline').forEach(interval => outages.push({...interval, name: device.name, index})));
   outages.sort((a, b) => b.start - a.start);
   const body = document.querySelector('#outages');
   body.replaceChildren();
@@ -240,7 +247,8 @@ function render(data) {
     const row = el('tr');
     const start = interval.start === data.start ? `${date(interval.start)} · межа періоду` : date(interval.start);
     const end = interval.end === data.end ? 'Триває за останніми даними' : date(interval.end);
-    [interval.name, start, end, duration(interval.end - interval.start)].forEach(value => row.append(el('td', value)));
+    row.append(el('td', interval.name, `device-key socket-key-${interval.index}`));
+    [start, end, duration(interval.end - interval.start)].forEach(value => row.append(el('td', value)));
     body.append(row);
   });
   if (!outages.length) {
@@ -268,6 +276,25 @@ async function refresh() {
     loading = false;
     button.disabled = false;
   }
+}
+function setupTheme() {
+  const themes = ['light', 'dark', 'classic'];
+  const select = document.querySelector('#theme');
+  let theme = 'dark';
+  try {
+    const saved = localStorage.getItem('socketstat-theme');
+    if (themes.includes(saved)) theme = saved;
+  } catch (_) { /* Theme switching also works when storage is unavailable. */ }
+  function apply(value) {
+    const selected = themes.includes(value) ? value : 'dark';
+    document.documentElement.setAttribute('data-theme', selected);
+    select.value = selected;
+  }
+  apply(theme);
+  select.addEventListener('change', () => {
+    apply(select.value);
+    try { localStorage.setItem('socketstat-theme', select.value); } catch (_) {}
+  });
 }
 function setupTabs() {
   const tabs = [...document.querySelectorAll('[role="tab"]')];
@@ -297,6 +324,7 @@ function setupTabs() {
 }
 
 document.querySelector('#refresh').addEventListener('click', refresh);
+setupTheme();
 setupTabs();
 refresh();
 setInterval(refresh, 30000);
