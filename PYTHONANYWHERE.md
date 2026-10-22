@@ -2,7 +2,7 @@
 
 Інструкція для чинного сайту **https://vacula.eu.pythonanywhere.com** та репозиторію **https://github.com/vkgh-project/SocketStat**, гілка `main`.
 
-GitHub-копія коду зберігатиметься окремо в `$HOME/SocketStat-source`. З неї в робочу папку `/home/Vacula/socketstat` переноситимуться лише `socketstat/`, `requirements.txt` і `pythonanywhere_start.py`. Кореневий `.env`, папка `data/`, віртуальне середовище й налаштування сайту не копіюються з GitHub. Спосіб працює і після встановлення із ZIP: наявність `.git` у робочій папці не потрібна.
+GitHub-копія коду зберігатиметься окремо в `$HOME/SocketStat-source`. З неї в робочу папку `/home/Vacula` переноситимуться лише `socketstat/`, `requirements.txt` і `pythonanywhere_start.py`. Кореневий `.env`, папка `data/`, віртуальне середовище й налаштування сайту не копіюються з GitHub. Спосіб працює і після встановлення із ZIP: наявність `.git` у робочій папці не потрібна.
 
 ## 1. Перевірте чинний запуск
 
@@ -12,22 +12,30 @@ GitHub-копія коду зберігатиметься окремо в `$HOME
 pa website get --domain vacula.eu.pythonanywhere.com
 ```
 
-Команда запуску має використовувати:
+Чинна команда запуску:
 
 ```text
-/home/Vacula/socketstat/.venv/bin/python /home/Vacula/socketstat/pythonanywhere_start.py
+/bin/bash /home/Vacula/start.sh
 ```
+
+У `start.sh` виконується `cd "$(dirname "$0")"`, а потім `.venv/bin/python -m uvicorn socketstat.app:app`. Отже, робоча папка — `/home/Vacula`, Python — `/home/Vacula/.venv/bin/python`, а `/home/Vacula/socketstat` — папка Python-пакета. Скрипт оновлення не змінює `start.sh` та команду сайту.
 
 Якщо робоча папка чи середовище інші, підставте їхні фактичні шляхи в командах нижче. Не створюйте сайт заново й не змінюйте його команду для звичайного оновлення.
 
-Перевірте через **Files**, що чинні налаштування лежать у `/home/Vacula/socketstat/.env`, а `DB_PATH` указує на наявну базу. Типове значення — `./data/socketstat.db`; відносний шлях рахується від робочої папки проєкту. Не змінюйте його під час оновлення. Якщо вебпроцес має окремо задані змінні середовища, вони мають пріоритет над `.env`: консоль для резервного копіювання повинна використовувати той самий `DB_PATH`, що й сайт.
+Перевірте через **Files**, що чинні налаштування лежать у `/home/Vacula/.env`, а `DB_PATH` указує на наявну базу. Типове значення — `./data/socketstat.db`; відносний шлях рахується від робочої папки проєкту. Не змінюйте його під час оновлення. Якщо вебпроцес має окремо задані змінні середовища, вони мають пріоритет над `.env`: консоль для резервного копіювання повинна використовувати той самий `DB_PATH`, що й сайт.
 
 Якщо `pa` не знайдено, установіть CLI в окремій Bash console командою `pip install --upgrade pythonanywhere`. Для його роботи потрібен API token на сторінці **Account → API token**. Команди керування ASGI й перезапуску наведені в [офіційній документації PythonAnywhere](https://help.pythonanywhere.com/pages/ASGICommandLine).
 
 ## 2. Завантажте файл оновлення
 
 Скрипт міститься в репозиторії: [`update_pythonanywhere.sh`](update_pythonanywhere.sh).
-Через **Files** завантажте цей файл із локальної папки проєкту у свою домашню папку PythonAnywhere. Збережіть саме файл `.sh`, без Markdown-огорож і без копіювання великого блоку в консоль. Це можна зробити відразу, навіть якщо зміни ще не відправлені на GitHub.
+Завантажте його в Bash console:
+
+```bash
+curl -fL https://raw.githubusercontent.com/vkgh-project/SocketStat/main/update_pythonanywhere.sh -o /home/Vacula/update_pythonanywhere.sh
+```
+
+Також можна завантажити локальний файл через **Files** у `/home/Vacula/`.
 
 ## 3. Запускайте файл для кожного оновлення
 
@@ -39,12 +47,12 @@ bash "$HOME/update_pythonanywhere.sh"
 
 `chmod +x` не потрібен. Скрипт сам клонує репозиторій у `$HOME/SocketStat-source`, якщо цієї папки ще немає, або оновлює наявну копію через `git pull --ff-only origin main`.
 
-Робочий шлях задано з точним регістром: `/home/Vacula/socketstat` (`Vacula` з великої літери, `socketstat` — малими). Шляхи до окремої GitHub-копії та резервних копій визначаються через `$HOME`. Робоча папка — `/home/Vacula/socketstat`, Python — `/home/Vacula/socketstat/.venv/bin/python`, резервні копії — `$HOME/socketstat-backups`.
+Типова робоча папка — `/home/Vacula` (логін з великої `V`), Python — `/home/Vacula/.venv/bin/python`, код — `/home/Vacula/socketstat/`. GitHub-копія зберігається в `$HOME/SocketStat-source`, резервні копії — у `$HOME/socketstat-backups`; ці папки не перезаписуються під час перенесення коду.
 
 Якщо чинний сайт використовує іншу папку, вкажіть її під час запуску:
 
 ```bash
-SOCKETSTAT_APP_DIR=/home/Vacula/socketstat bash "$HOME/update_pythonanywhere.sh"
+SOCKETSTAT_APP_DIR=/home/Vacula bash "$HOME/update_pythonanywhere.sh"
 ```
 
 За потреби так само можна задати `SOCKETSTAT_SOURCE_DIR` і `SOCKETSTAT_BACKUP_DIR`. Робоча папка та GitHub-копія повинні бути окремими.

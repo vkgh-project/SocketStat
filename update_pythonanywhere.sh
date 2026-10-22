@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 umask 077
 
-APP="${SOCKETSTAT_APP_DIR:-/home/Vacula/socketstat}"
+# start.sh changes to /home/Vacula before starting .venv/bin/python.
+APP="${SOCKETSTAT_APP_DIR:-/home/Vacula}"
 SOURCE="${SOCKETSTAT_SOURCE_DIR:-$HOME/SocketStat-source}"
 BACKUP_ROOT="${SOCKETSTAT_BACKUP_DIR:-$HOME/socketstat-backups}"
 DOMAIN=vacula.eu.pythonanywhere.com
@@ -22,7 +23,7 @@ done
 printf 'Робоча папка: %s\nGitHub-копія: %s\n' "$APP" "$SOURCE"
 STEP='резервне копіювання'
 
-# Резервні копії лежать поза робочою папкою та GitHub-копією.
+# Резервні копії лежать в окремій папці, яку rsync не змінює.
 mkdir -p "$BACKUP_ROOT"
 BACKUP=$(mktemp -d "$BACKUP_ROOT/update-$(date +%Y%m%d-%H%M%S)-XXXXXX")
 printf 'Резервна копія: %s\n' "$BACKUP"
@@ -79,7 +80,12 @@ done
 STEP='збереження попереднього коду'
 
 # Зберігаємо попередній код для можливого відновлення.
-tar -czf "$BACKUP/code.tar.gz" socketstat requirements.txt pythonanywhere_start.py
+# Старе розгортання через start.sh може не мати нового launcher-файлу.
+CODE_FILES=(socketstat)
+for file in requirements.txt pythonanywhere_start.py start.sh; do
+    if [[ -f "$file" ]]; then CODE_FILES+=("$file"); fi
+done
+tar -czf "$BACKUP/code.tar.gz" "${CODE_FILES[@]}"
 .venv/bin/python -m pip freeze > "$BACKUP/requirements-before.txt"
 
 STEP='перенесення коду'
