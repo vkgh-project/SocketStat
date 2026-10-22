@@ -22,8 +22,8 @@ def main(argv=None):
         parser.error('DOMAIN_SOCKET is required; run this entry point as a PythonAnywhere ASGI website')
 
     # The hosting service may start us from an unrelated working directory.
-    os.chdir(ROOT)
-    load_dotenv(ROOT / '.env')
+    os.chdir(Path(os.environ.get('SOCKETSTAT_WORK_DIR', str(ROOT))))
+    load_dotenv(Path(os.environ.get('SOCKETSTAT_ENV_FILE', str(ROOT / '.env'))))
     Settings.from_env()  # Fail before listening if credentials/configuration are invalid.
     if args.check:
         print('Configuration OK. Tuya connectivity has not been checked.')

@@ -17,6 +17,7 @@ from .config import Settings
 from .store import RETENTION, Store
 from .timeline import summarize
 from .tuya import TuyaClient
+from .updates import mount_updates
 
 STATIC = Path(__file__).parent / 'static'
 security = HTTPBasic(auto_error=False)
@@ -35,6 +36,7 @@ def create_app(settings=None, *, local=False):
         async with httpx.AsyncClient(timeout=8, follow_redirects=False) as client:
             task = asyncio.create_task(collect(app.state.store, TuyaClient(settings, client), settings))
             app.state.collector = task
+            app.state.updates.started()
             try:
                 yield
             finally:
@@ -71,6 +73,8 @@ def create_app(settings=None, *, local=False):
             "default-src 'self'; script-src 'self'; style-src 'self'; "
             "connect-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'"
         )
+        if app.state.updates.revision:
+            response.headers['X-SocketStat-Revision'] = app.state.updates.revision
         return response
 
     @app.get('/healthz')
@@ -88,7 +92,7 @@ def create_app(settings=None, *, local=False):
 
     @app.get('/assets/{name}', dependencies=[Depends(authenticate)])
     def asset(name: str):
-        if name not in ('app.js', 'style.css'):
+        if name not in ('app.js', 'style.css', 'updates.js'):
             raise HTTPException(404)
         return FileResponse(STATIC / name)
 
@@ -126,6 +130,7 @@ def create_app(settings=None, *, local=False):
                 'weekly': {'start': weekly_start, 'end': now, 'devices': weekly_devices},
                 'today': {'start': day_start, 'end': day_end}}
 
+    mount_updates(app, authenticate, local=local)
     return app
 
 

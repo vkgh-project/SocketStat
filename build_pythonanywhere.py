@@ -10,10 +10,11 @@ def build():
     files = [ROOT / name for name in (
         'requirements.txt', '.env.example', 'pythonanywhere_start.py',
         'PYTHONANYWHERE.md', 'README.md', 'build_pythonanywhere.py',
+        'deploy_pythonanywhere.py', 'update_pythonanywhere.sh',
     )]
     files += sorted((ROOT / 'socketstat').glob('*.py'))
     files += [ROOT / 'socketstat' / 'static' / name
-              for name in ('index.html', 'style.css', 'app.js')]
+              for name in ('index.html', 'style.css', 'app.js', 'updates.html', 'updates.js')]
     output = ROOT / 'output' / 'socketstat-pythonanywhere.zip'
     output.parent.mkdir(exist_ok=True)
     with ZipFile(output, 'w', ZIP_DEFLATED) as archive:

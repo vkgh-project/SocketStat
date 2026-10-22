@@ -161,6 +161,8 @@ GET /v1.0/iot-03/devices/{device_id}
 
 ## PythonAnywhere
 
+Оновлення з GitHub запускаються кнопкою на захищеній сторінці `/updates`. Одноразове встановлення, автоматичні резервні копії та прибирання старих файлів описані в [PYTHONANYWHERE.md](PYTHONANYWHERE.md).
+
 Готовий архів: `output/socketstat-pythonanywhere.zip`; створення або оновлення — `python build_pythonanywhere.py`.
 Покрокове розгортання через ASGI, налаштування `.env`, перевірка та оновлення описані в [PYTHONANYWHERE.md](PYTHONANYWHERE.md).
 Архів містить код і приклад налаштувань без секретів та локальної історії.

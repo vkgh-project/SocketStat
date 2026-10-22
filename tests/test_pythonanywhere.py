@@ -52,8 +52,10 @@ def test_archive_contains_runtime_but_no_private_files(tmp_path, monkeypatch):
     monkeypatch.setattr(module, 'ROOT', tmp_path)
     for name in ('requirements.txt', '.env.example', 'pythonanywhere_start.py',
                  'PYTHONANYWHERE.md', 'README.md', 'build_pythonanywhere.py',
+                 'deploy_pythonanywhere.py', 'update_pythonanywhere.sh',
                  'socketstat/app.py', 'socketstat/static/index.html',
                  'socketstat/static/style.css', 'socketstat/static/app.js',
+                 'socketstat/static/updates.html', 'socketstat/static/updates.js',
                  '.env', 'data/socketstat.db', 'socketstat/__pycache__/app.pyc'):
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -63,7 +65,7 @@ def test_archive_contains_runtime_but_no_private_files(tmp_path, monkeypatch):
     assert 'SocketStat/.env.example' in names
     assert 'SocketStat/socketstat/static/app.js' in names
     assert 'SocketStat/pythonanywhere_start.py' in names
-    assert len(names) == 10
+    assert len(names) == 14
     assert not any(name.endswith(('.env', '.db', '.pyc')) for name in names)
 
     deployment = tmp_path / 'deployment'

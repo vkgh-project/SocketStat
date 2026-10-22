@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Оновлення — SocketStat</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/updates.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div><h1>Оновлення<span>.</span></h1><p class="subtitle">SocketStat</p></div><a href="/">← До розеток</a></header>
+    <section class="panel update-panel">
+      <h2>Оновлення з GitHub</h2>
+      <p>Нова версія готується, поки сайт працює. Перед перемиканням система збереже резервну копію налаштувань та історії.</p>
+      <p>Поточна версія: <strong id="version">…</strong></p>
+      <p id="update-status" role="status" aria-live="polite">Перевіряємо стан…</p>
+      <p id="backup" class="hint" hidden></p>
+      <button id="install-update" type="button" disabled>Оновити з GitHub</button>
+      <p class="hint">Під час перезапуску сайт короткочасно недоступний. Цю сторінку можна залишити відкритою.</p>
+      <p id="update-error" class="error" role="alert" hidden></p>
+    </section>
+  </main>
+</body>
+</html>
