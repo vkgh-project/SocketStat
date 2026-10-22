@@ -65,3 +65,19 @@ def test_archive_contains_runtime_but_no_private_files(tmp_path, monkeypatch):
     assert 'SocketStat/pythonanywhere_start.py' in names
     assert len(names) == 10
     assert not any(name.endswith(('.env', '.db', '.pyc')) for name in names)
+
+    deployment = tmp_path / 'deployment'
+    existing = {
+        '.env': 'configured-credentials',
+        'data/socketstat.db': 'existing-history',
+        '.venv/pyvenv.cfg': 'existing-environment',
+    }
+    for name, contents in existing.items():
+        path = deployment / 'SocketStat' / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(contents, encoding='utf-8')
+    with ZipFile(tmp_path / 'output' / 'socketstat-pythonanywhere.zip') as archive:
+        archive.extractall(deployment)
+    for name, contents in existing.items():
+        assert (deployment / 'SocketStat' / name).read_text(encoding='utf-8') == contents
+    assert (deployment / 'SocketStat/socketstat/app.py').read_text(encoding='utf-8') == 'fixture'

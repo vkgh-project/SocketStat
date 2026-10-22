@@ -150,7 +150,8 @@ test('tabs show one panel, support keyboard navigation and keep selection during
   assert.equal(tabs[1].tabIndex, -1);
 
   const start = seconds('2026-10-15T00:00:00Z');
-  context.render({demo: true, start, end: start + 3600, devices: []});
+  context.render({demo: true, start, end: start + 3600, devices: [],
+    weekly: {start, end: start + 3600, devices: []}});
   assert.equal(panels['panel-devices'].hidden, false);
   assert.equal(tabs[0].attrs['aria-selected'], 'true');
   assert.equal(nodes['#weekly'].children.length, 1);
@@ -168,4 +169,29 @@ test('tabs show one panel, support keyboard navigation and keep selection during
   key(tabs[2], 'Home');
   assert.equal(panels['panel-devices'].hidden, false);
   assert.equal(Object.values(panels).filter(panel => !panel.hidden).length, 1);
+});
+
+test('render uses weekly history and preserves the chosen week on refresh', () => {
+  const context = load();
+  const nodes = Object.fromEntries(['demo', 'summary', 'weekly', 'devices', 'outages'].map(id => [`#${id}`, element('div')]));
+  context.document.querySelector = id => nodes[id];
+  const start = seconds('2026-10-07T09:00:00Z'), end = seconds('2026-10-21T09:00:00Z');
+  const old = seconds('2026-10-13T09:00:00Z');
+  const data = {demo: false, start: end - 86400, end, devices: [],
+    weekly: {start, end, devices: [{name: 'one', intervals: [{start: old, end: old + 3600, state: 'offline'}]}]}};
+  context.render(data);
+  let panel = nodes['#weekly'].children[0];
+  let select = panel.children[0].children[1];
+  assert.deepEqual(Array.from(select.children, option => option.value), ['2026-10-05', '2026-10-12', '2026-10-19']);
+  select.value = '2026-10-12';
+  select.listeners.change();
+  const hasOldOutage = () => nodes['#weekly'].children[0].children[1].children[0].children.some(node =>
+    node.attrs.fill === 'url(#weekly-offline-0)' && node.attrs['aria-label'].includes('13.10 12:00'));
+  assert.ok(hasOldOutage());
+  context.render(data);
+  panel = nodes['#weekly'].children[0];
+  select = panel.children[0].children[1];
+  assert.equal(select.value, '2026-10-12');
+  assert.ok(hasOldOutage());
+  assert.ok(nodes['#outages'].children[0].children[0].textContent.includes('За останню добу'));
 });

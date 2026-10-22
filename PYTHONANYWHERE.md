@@ -17,7 +17,7 @@ unzip socketstat-pythonanywhere.zip
 cd ~/SocketStat
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-cp .env.example .env
+if [ ! -e .env ]; then cp .env.example .env; fi
 chmod 600 .env
 ```
 
@@ -80,14 +80,37 @@ pa website get --domain YOURUSERNAME.pythonanywhere.com
 Не додавайте `--reload` або додаткові workers. Під час зупинки чи перезапуску сервера опитування немає; пропуски залишаються «немає даних».
 Збір залежить від доступності вебпроцесу на обраному тарифі. Після розгортання перевірте накопичення історії також без відкритої панелі.
 
-Для оновлення замініть код і статичні файли, зберігаючи `.env` та `data/`, потім виконайте:
+### Оновлення з GitHub (якщо папка містить `.git`)
+
+У Bash console виконайте, замінивши домен своїм:
 
 ```bash
-cd ~/SocketStat
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python pythonanywhere_start.py --check
+cd ~/SocketStat &&
+git pull --ff-only origin main &&
+.venv/bin/python -m pip install -r requirements.txt &&
+.venv/bin/python pythonanywhere_start.py --check &&
 pa website reload --domain YOURUSERNAME.pythonanywhere.com
 ```
+
+`git pull --ff-only` оновлює код без примусового скидання локальних змін. У цьому репозиторії `.env` та `data/` виключені через `.gitignore` і не відстежуються Git, тому наведені команди їх не перезаписують. `.env.example` — лише шаблон, застосунок не копіює його поверх `.env`. Налаштування домену та команди ASGI-сайту також не змінюються: виконується лише reload. Не запускайте `cp .env.example .env`, `git reset --hard` або `git clean` для звичайного оновлення.
+
+### Оновлення після встановлення з ZIP (без `.git`)
+
+Завантажте оновлений `output/socketstat-pythonanywhere.zip` із GitHub. Цей пакет містить лише код, документацію та `.env.example`: `.env`, `data/` і `.venv/` у нього не входять. Розпакування оновить код у `~/SocketStat`, зберігши ці локальні файли:
+
+```bash
+cd ~ &&
+curl -fL https://raw.githubusercontent.com/vkgh-project/SocketStat/main/output/socketstat-pythonanywhere.zip -o socketstat-pythonanywhere.zip &&
+unzip -o socketstat-pythonanywhere.zip &&
+cd ~/SocketStat &&
+.venv/bin/python -m pip install -r requirements.txt &&
+.venv/bin/python pythonanywhere_start.py --check &&
+pa website reload --domain YOURUSERNAME.pythonanywhere.com
+```
+
+Якщо тариф блокує завантаження з GitHub, завантажте цей ZIP на комп’ютер і передайте в домашню папку PythonAnywhere через Files, потім виконайте команди вище без рядка `curl`.
+
+Для EU-акаунта використовуйте домен `YOURUSERNAME.eu.pythonanywhere.com`. Ланцюжок `&&` зупинить виконання при помилці: reload відбудеться лише після успішного оновлення та перевірки конфігурації. Перевірка `--check` не запускає збирач і не очищає базу.
 
 Після зміни `.env` теж потрібен reload. Перезавантажте панель через Ctrl+F5.
 Шляхи до error/server/access logs показує `pa website get --domain ...`.

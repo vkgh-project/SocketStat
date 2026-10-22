@@ -150,7 +150,7 @@ function weeklyPanel(series, start, end, prefix = 'weekly') {
   }
   select.addEventListener('change', () => { selectedWeek = select.value; draw(); });
   header.append(select); draw();
-  panel.append(header, chart, socketLegend(series, true), el('p', 'Кожна година містить дві смуги: зверху перша розетка, знизу друга. Доступність — суцільна заливка, недоступність — кольорове штрихування, немає даних — сірі крапки, зокрема поза вибраним періодом. Довжина частин показує тривалість станів, а не їх порядок у межах години. Це історія спостережень, а не прогноз.', 'hint'));
+  panel.append(header, chart, socketLegend(series, true), el('p', 'Кожна година містить дві смуги: зверху перша розетка, знизу друга. Доступність — суцільна заливка, недоступність — кольорове штрихування, немає даних — сірі крапки. Розклад використовує історію останніх 14 діб; майбутні години та давніші дані не заповнюються. Довжина частин показує тривалість станів, а не їх порядок у межах години. Це історія спостережень, а не прогноз.', 'hint'));
   return panel;
 }
 
@@ -227,8 +227,9 @@ function render(data) {
   const summary = document.querySelector('#summary');
   summary.className = `summary ${status.state}`;
   summary.replaceChildren(el('strong', status.text));
-  const series = aggregateCharts(data.devices, data.start, data.end);
-  document.querySelector('#weekly').replaceChildren(weeklyPanel(series, data.start, data.end));
+  const weekly = data.weekly;
+  const series = aggregateCharts(weekly.devices, weekly.start, weekly.end);
+  document.querySelector('#weekly').replaceChildren(weeklyPanel(series, weekly.start, weekly.end));
   document.querySelector('#devices').replaceChildren(...data.devices.map(device => card(device, data.today, data.end)));
   const outages = [];
   data.devices.forEach(device => device.intervals.filter(i => i.state === 'offline').forEach(interval => outages.push({...interval, name: device.name})));

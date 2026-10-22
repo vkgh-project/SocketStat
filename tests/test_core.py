@@ -152,6 +152,28 @@ def test_app_auth_and_dashboard(tmp_path):
         assert response.headers['cache-control'] == 'no-store'
 
 
+def test_weekly_history_is_independent_of_daily_range(tmp_path):
+    config = settings(tmp_path)
+    with TestClient(create_app(config)) as client:
+        now = time.time()
+        old = int((now - 5 * 86400) // 60) * 60
+        expired = int((now - RETENTION - 120) // 60) * 60
+        store = client.app.state.store
+        store.save('one', old, old + 1, 'offline')
+        store.save('two', old, old + 1, 'online')
+        store.save('one', expired, expired + 1, 'offline')
+        data = client.get('/api/dashboard', auth=('admin', 'long-test-password')).json()
+        assert data['end'] - data['start'] == 86400
+        assert all(i['start'] >= data['start'] for i in data['devices'][0]['intervals'])
+        assert sum(data['devices'][0]['stats']['seconds'].values()) == 86400
+        weekly = data['weekly']
+        assert weekly['end'] == data['end']
+        assert weekly['end'] - weekly['start'] == RETENTION
+        assert {'start': old, 'end': old + 60, 'state': 'offline'} in weekly['devices'][0]['intervals']
+        assert {'start': old, 'end': old + 60, 'state': 'online'} in weekly['devices'][1]['intervals']
+        assert all(i['start'] >= weekly['start'] for i in weekly['devices'][0]['intervals'])
+
+
 def test_local_dashboard_requires_no_credentials(tmp_path):
     with TestClient(create_app(settings(tmp_path), local=True),
                     base_url='http://127.0.0.1:8000', client=('127.0.0.1', 50000)) as client:

@@ -96,12 +96,19 @@ def create_app(settings=None, *, local=False):
     def dashboard(hours: float = Query(24, ge=1, le=336)):
         now = time.time()
         start = now - hours * 3600
+        weekly_start = now - RETENTION
+        weekly_devices = []
         local_now = datetime.fromtimestamp(now, ZoneInfo('Europe/Kyiv'))
         midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
         day_start = midnight.timestamp()
         day_end = (midnight + timedelta(days=1)).timestamp()
         devices = []
         for device in app.state.settings.devices:
+            weekly_devices.append({
+                'name': device.name,
+                'intervals': summarize(app.state.store.read(device.id, weekly_start, now),
+                                       weekly_start, now)['intervals'],
+            })
             latest = app.state.store.latest(device.id)
             current = (latest['state'] if latest and now - latest['scheduled_at'] < 120
                        else 'unknown')
@@ -116,6 +123,7 @@ def create_app(settings=None, *, local=False):
             devices.append(item)
         return {'start': start, 'end': now, 'timezone': 'Europe/Kyiv',
                 'demo': app.state.settings.demo, 'devices': devices,
+                'weekly': {'start': weekly_start, 'end': now, 'devices': weekly_devices},
                 'today': {'start': day_start, 'end': day_end}}
 
     return app
